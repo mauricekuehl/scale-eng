@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+apt-get update
+apt-get install -y docker.io curl python3
+systemctl enable --now docker
+
+TOKEN=$(curl -fsS -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+echo "$TOKEN" | docker login -u oauth2accesstoken --password-stdin "https://${artifact_host}"
+
+docker pull "${image_uri}"
+docker rm -f db || true
+docker run -d \
+  --name db \
+  --restart unless-stopped \
+  -p 9000:9000 \
+  -e HTTP_ADDR=:9000 \
+  "${image_uri}"
