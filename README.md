@@ -31,7 +31,8 @@ Request body:
 
 The `url` field is required and must contain a valid absolute URL.
 
-The system shall generate a unique 8-character alphanumeric code, store it with the original URL, and return:
+The system shall generate a unique 8-character alphanumeric code, store it with
+the original URL, and return:
 
 ```json
 {
@@ -41,6 +42,9 @@ The system shall generate a unique 8-character alphanumeric code, store it with 
 
 Invalid JSON, missing URLs, malformed URLs, relative URLs, and non-HTTP(S) URLs
 return `400 Bad Request`.
+
+Creating the same URL again returns the same short URL while the DB node is
+running.
 
 ### Access Short URL
 
@@ -99,6 +103,8 @@ Example response:
 }
 ```
 
+Calling `POST /create` again with the same `url` returns the same `shortUrl`.
+
 Open the short URL in a browser or follow it with curl:
 
 ```bash
@@ -155,6 +161,7 @@ Create or update infrastructure:
 
 ```bash
 make deploy
+make wait
 ```
 
 The VMs run their containers from Terraform-managed startup scripts. On boot,
@@ -178,6 +185,7 @@ Restart both VMs so their startup scripts pull the pushed images:
 
 ```bash
 make restart-all
+make wait
 ```
 
 Or restart only one component:
@@ -208,6 +216,15 @@ Show Terraform outputs:
 ```bash
 make outputs
 ```
+
+Destroy the Terraform-managed infrastructure:
+
+```bash
+make undeploy
+```
+
+This removes the VMs, network, firewall rules, service account, NAT/router, and
+static IP. It does not delete the Artifact Registry repository or pushed images.
 
 After deployment, set `API_URL` to the public service URL:
 

@@ -55,8 +55,8 @@ func create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortCode := code()
-	if err := save(shortCode, u.String()); err != nil {
+	shortCode, err := save(code(), u.String())
+	if err != nil {
 		log.Println(err)
 		http.Error(w, "db error", http.StatusInternalServerError)
 		return
@@ -97,21 +97,24 @@ func code() string {
 	return string(b)
 }
 
-func save(code, originalURL string) error {
+func save(code, originalURL string) (string, error) {
 	body, _ := json.Marshal(map[string]string{"url": originalURL})
 	req, _ := http.NewRequest(http.MethodPut, strings.TrimRight(dbURL, "/")+"/"+code, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("db returned %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("db returned %d", resp.StatusCode)
 	}
-	return nil
+	var bodyResp struct {
+		Code string `json:"code"`
+	}
+	return bodyResp.Code, json.NewDecoder(resp.Body).Decode(&bodyResp)
 }
 
 func load(code string) (string, bool, error) {

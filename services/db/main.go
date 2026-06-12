@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	mu   sync.RWMutex
-	urls = map[string]string{}
+	mu      sync.RWMutex
+	urls    = map[string]string{}
+	urlCode = map[string]string{}
 )
 
 func main() {
@@ -54,12 +55,18 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 		mu.Lock()
 		defer mu.Unlock()
+		if existingCode, exists := urlCode[body.URL]; exists {
+			json.NewEncoder(w).Encode(map[string]string{"code": existingCode})
+			return
+		}
 		if _, exists := urls[code]; exists {
 			http.Error(w, "exists", http.StatusConflict)
 			return
 		}
 		urls[code] = body.URL
+		urlCode[body.URL] = code
 		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"code": code})
 		return
 	}
 

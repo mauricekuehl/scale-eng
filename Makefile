@@ -16,12 +16,20 @@ LOCAL_DB_IMAGE := url-shortener-db:local
 LOCAL_NETWORK := url-shortener-local
 PLATFORM ?= linux/amd64
 
-.PHONY: deploy build-api build-db build-all push-api push-db push-all run-local restart-api restart-db restart-all outputs
+.PHONY: deploy undeploy build-api build-db build-all push-api push-db push-all run-local restart-api restart-db restart-all wait outputs
 
 deploy:
 	gcloud services enable serviceusage.googleapis.com compute.googleapis.com artifactregistry.googleapis.com iam.googleapis.com --project=$(PROJECT_ID)
 	$(TF_AUTH) terraform -chdir=$(TF_DIR) init
 	$(TF_AUTH) terraform -chdir=$(TF_DIR) apply \
+		-var="project_id=$(PROJECT_ID)" \
+		-var="region=$(REGION)" \
+		-var="zone=$(ZONE)" \
+		-var="repo_name=$(REPO_NAME)" \
+		-var="image_tag=$(TAG)"
+
+undeploy:
+	$(TF_AUTH) terraform -chdir=$(TF_DIR) destroy \
 		-var="project_id=$(PROJECT_ID)" \
 		-var="region=$(REGION)" \
 		-var="zone=$(ZONE)" \
@@ -80,6 +88,21 @@ restart-db:
 		--zone=$(ZONE)
 
 restart-all: restart-db restart-api
+
+wait:
+	@API_URL="$$(terraform -chdir=$(TF_DIR) output -raw base_url)"; \
+	echo "Waiting for $$API_URL ..."; \
+	for i in $$(seq 1 60); do \
+		status="$$(curl -s -o /dev/null -w '%{http_code}' "$$API_URL/unknown1" || true)"; \
+		if [ "$$status" = "404" ]; then \
+			echo "Ready: $$API_URL"; \
+			exit 0; \
+		fi; \
+		echo "Still starting ($$status)"; \
+		sleep 5; \
+	done; \
+	echo "Timed out waiting for $$API_URL"; \
+	exit 1
 
 outputs:
 	terraform -chdir=$(TF_DIR) output
