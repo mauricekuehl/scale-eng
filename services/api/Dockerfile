@@ -18,4 +18,4 @@ EXPOSE 8080
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 USER appuser
 
-CMD ["opentelemetry-instrument", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["opentelemetry-instrument", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]

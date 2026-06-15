@@ -18,4 +18,4 @@ EXPOSE 9000
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 USER appuser
 
-CMD ["opentelemetry-instrument", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "9000"]
+CMD ["opentelemetry-instrument", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "9000", "--no-access-log"]

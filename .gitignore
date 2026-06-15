@@ -19,6 +19,7 @@ htmlcov/
 
 # Logs and local output
 *.log
+benchmarks/
 tmp/
 dist/
 build/

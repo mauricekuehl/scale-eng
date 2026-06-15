@@ -29,6 +29,7 @@ Options:
 Environment:
   API_URL      Required. Base URL of the API under test.
   SEED_COUNT   Optional for --read. Defaults to 1000.
+  BENCHMARK_DIR Optional output directory. Defaults to ./benchmarks.
 USAGE
 }
 
@@ -143,10 +144,21 @@ fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 script="$script_dir/$mode.js"
+repo_dir="$(cd "$script_dir/.." && pwd)"
+benchmark_dir="${BENCHMARK_DIR:-$repo_dir/benchmarks}"
+timestamp="$(date -u +"%Y%m%dT%H%M%SZ")"
+benchmark_name="$timestamp-$profile-$mode"
+if [[ "$mode" == "$MODE_READ" ]]; then
+  benchmark_name="$benchmark_name-$distribution"
+fi
+benchmark_file="$benchmark_dir/$benchmark_name-summary.json"
+
+mkdir -p "$benchmark_dir"
 
 args=(-e "API_URL=$API_URL" -e "PROFILE=$profile")
 if [[ "$mode" == "$MODE_READ" ]]; then
   args+=(-e "DISTRIBUTION=$distribution")
 fi
 
-k6 run "${args[@]}" "$script"
+echo "Writing k6 summary to $benchmark_file"
+k6 run --summary-export "$benchmark_file" "${args[@]}" "$script"

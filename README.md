@@ -139,8 +139,8 @@ Available profiles:
   maximum is reached.
 
 Available targets:
-- `--read`: Test creating short urls
-- `--query`: Test reading short urls
+- `--query`: Test creating short urls
+- `--read`: Test reading short urls
 
 Available read distributions:
 
