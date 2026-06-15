@@ -23,7 +23,6 @@ Options:
   --query                   Load test POST /create with unique URLs.
   --read                    Seed entries, then load test GET /<code>.
   --constant-distribution   Always read the first seeded code.
-  --constant-distruibution  Alias for --constant-distribution.
   --uniform-distribution    Read evenly across seeded codes.
   --hotspot-distribution    Read with a simple hot-key skew.
 
@@ -72,7 +71,7 @@ for arg in "$@"; do
           ;;
       esac
       ;;
-    --constant-distribution|--constant-distruibution)
+    --constant-distribution)
       if [[ -n "$distribution" ]]; then
         echo "error: choose exactly one read distribution" >&2
         usage >&2
