@@ -14,8 +14,13 @@ docker run -d \
   --name db \
   --restart unless-stopped \
   -p 9000:9000 \
-  -e HTTP_ADDR=:9000 \
   -e OTEL_SERVICE_NAME=url-shortener-db \
   -e OTEL_EXPORTER_OTLP_ENDPOINT="${otel_endpoint}" \
-  -e OTEL_METRIC_EXPORT_INTERVAL=5000 \
+  -e OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+  -e OTEL_METRICS_EXPORTER=otlp \
+  -e OTEL_TRACES_EXPORTER=none \
+  -e OTEL_LOGS_EXPORTER=none \
+  -e OTEL_METRIC_EXPORT_INTERVAL=10000 \
+  -e OTEL_METRIC_EXPORT_TIMEOUT=30000 \
+  -e OTEL_RESOURCE_ATTRIBUTES=service.namespace=url-shortener \
   "${image_uri}"

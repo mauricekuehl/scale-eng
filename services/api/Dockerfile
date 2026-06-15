@@ -1,16 +1,21 @@
-FROM golang:1.22-bookworm AS build
+FROM python:3.12-slim
 
-WORKDIR /src
-COPY go.mod go.sum ./
-COPY internal ./internal
-COPY services/api ./services/api
+WORKDIR /app
 
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./services/api
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    OTEL_TRACES_EXPORTER=none \
+    OTEL_METRICS_EXPORTER=none \
+    OTEL_LOGS_EXPORTER=none
 
-FROM gcr.io/distroless/static-debian12:nonroot
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY --from=build /out/api /api
+COPY services/api/app.py .
 
 EXPOSE 8080
-USER nonroot:nonroot
-ENTRYPOINT ["/api"]
+
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
+USER appuser
+
+CMD ["opentelemetry-instrument", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]

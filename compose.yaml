@@ -1,15 +1,23 @@
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_METRICS_EXPORTER: otlp
+  OTEL_TRACES_EXPORTER: none
+  OTEL_LOGS_EXPORTER: none
+  OTEL_METRIC_EXPORT_INTERVAL: 10000
+  OTEL_METRIC_EXPORT_TIMEOUT: 30000
+  OTEL_RESOURCE_ATTRIBUTES: service.namespace=url-shortener
+
 services:
   api:
     build:
       context: .
       dockerfile: services/api/Dockerfile
     environment:
-      HTTP_ADDR: :8080
+      <<: *otel-env
       BASE_URL: http://localhost:8080
       DB_URL: http://db:9000
       OTEL_SERVICE_NAME: url-shortener-api
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      OTEL_METRIC_EXPORT_INTERVAL: 5000
     ports:
       - "8080:8080"
     depends_on:
@@ -21,10 +29,8 @@ services:
       context: .
       dockerfile: services/db/Dockerfile
     environment:
-      HTTP_ADDR: :9000
+      <<: *otel-env
       OTEL_SERVICE_NAME: url-shortener-db
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      OTEL_METRIC_EXPORT_INTERVAL: 5000
     ports:
       - "9000:9000"
     depends_on:

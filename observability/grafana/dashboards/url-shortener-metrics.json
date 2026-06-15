@@ -725,7 +725,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(process_cpu_seconds_total[5m])) by (service_name)",
+          "expr": "sum(rate(process_cpu_time_seconds_total[5m])) by (service_name)",
           "legendFormat": "{{service_name}}",
           "range": true,
           "refId": "A"
@@ -814,8 +814,8 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "process_runtime_go_mem_heap_alloc_bytes",
-          "legendFormat": "allocated {{service_name}}",
+          "expr": "process_memory_usage_bytes",
+          "legendFormat": "rss {{service_name}}",
           "range": true,
           "refId": "A"
         },
@@ -825,13 +825,13 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "process_runtime_go_mem_heap_inuse_bytes",
-          "legendFormat": "in-use {{service_name}}",
+          "expr": "process_memory_virtual_bytes",
+          "legendFormat": "virtual {{service_name}}",
           "range": true,
           "refId": "B"
         }
       ],
-      "title": "Go heap memory",
+      "title": "Process memory",
       "type": "timeseries"
     },
     {

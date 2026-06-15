@@ -11,12 +11,25 @@ API_IMAGE := $(ARTIFACT_HOST)/$(PROJECT_ID)/$(REPO_NAME)/api:$(TAG)
 API_LATEST_IMAGE := $(ARTIFACT_HOST)/$(PROJECT_ID)/$(REPO_NAME)/api:latest
 DB_IMAGE := $(ARTIFACT_HOST)/$(PROJECT_ID)/$(REPO_NAME)/db:$(TAG)
 DB_LATEST_IMAGE := $(ARTIFACT_HOST)/$(PROJECT_ID)/$(REPO_NAME)/db:latest
-LOCAL_API_IMAGE := url-shortener-api:local
-LOCAL_DB_IMAGE := url-shortener-db:local
-LOCAL_NETWORK := url-shortener-local
 PLATFORM ?= linux/amd64
+PYTHON ?= python3
+PYTHON_FILES := services tests
 
-.PHONY: deploy undeploy build-api build-db build-all push-api push-db push-all run-local run-observability restart-api restart-db restart-observability restart-all wait outputs
+.PHONY: local validate lint format-check type-check deploy undeploy build-api build-db build-all push-api push-db push-all test-cloud restart-api restart-db restart-observability restart-all wait outputs
+
+local:
+	docker compose up --build
+
+validate: lint format-check type-check
+
+lint:
+	$(PYTHON) -m ruff check $(PYTHON_FILES)
+
+format-check:
+	$(PYTHON) -m ruff format --check $(PYTHON_FILES)
+
+type-check:
+	$(PYTHON) -m ty check $(PYTHON_FILES)
 
 deploy:
 	gcloud services enable serviceusage.googleapis.com compute.googleapis.com artifactregistry.googleapis.com iam.googleapis.com --project=$(PROJECT_ID)
@@ -62,23 +75,8 @@ push-db:
 
 push-all: push-api push-db
 
-run-local:
-	docker build -f services/db/Dockerfile -t $(LOCAL_DB_IMAGE) .
-	docker build -f services/api/Dockerfile -t $(LOCAL_API_IMAGE) .
-	docker network create $(LOCAL_NETWORK) >/dev/null 2>&1 || true
-	docker rm -f url-shortener-db url-shortener-api >/dev/null 2>&1 || true
-	docker run -d --name url-shortener-db --network $(LOCAL_NETWORK) -p 9000:9000 -e HTTP_ADDR=:9000 $(LOCAL_DB_IMAGE)
-	@echo "API running at http://localhost:8080"
-	@echo "Press Ctrl+C to stop local containers"
-	@trap 'docker rm -f url-shortener-api url-shortener-db >/dev/null 2>&1 || true' INT TERM EXIT; \
-	docker run --rm --name url-shortener-api --network $(LOCAL_NETWORK) -p 8080:8080 \
-		-e HTTP_ADDR=:8080 \
-		-e BASE_URL=http://localhost:8080 \
-		-e DB_URL=http://url-shortener-db:9000 \
-		$(LOCAL_API_IMAGE)
-
-run-observability:
-	docker compose up --build
+test-cloud:
+	API_URL="$$(terraform -chdir=$(TF_DIR) output -raw base_url)" $(PYTHON) -m pytest tests/integration_cloud.py
 
 restart-api:
 	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw api_vm_name)" \
