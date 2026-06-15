@@ -15,4 +15,7 @@ docker run -d \
   --restart unless-stopped \
   -p 9000:9000 \
   -e HTTP_ADDR=:9000 \
+  -e OTEL_SERVICE_NAME=url-shortener-db \
+  -e OTEL_EXPORTER_OTLP_ENDPOINT="${otel_endpoint}" \
+  -e OTEL_METRIC_EXPORT_INTERVAL=5000 \
   "${image_uri}"

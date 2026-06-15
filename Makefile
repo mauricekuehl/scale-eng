@@ -16,7 +16,7 @@ LOCAL_DB_IMAGE := url-shortener-db:local
 LOCAL_NETWORK := url-shortener-local
 PLATFORM ?= linux/amd64
 
-.PHONY: deploy undeploy build-api build-db build-all push-api push-db push-all run-local restart-api restart-db restart-all wait outputs
+.PHONY: deploy undeploy build-api build-db build-all push-api push-db push-all run-local run-observability restart-api restart-db restart-observability restart-all wait outputs
 
 deploy:
 	gcloud services enable serviceusage.googleapis.com compute.googleapis.com artifactregistry.googleapis.com iam.googleapis.com --project=$(PROJECT_ID)
@@ -77,6 +77,9 @@ run-local:
 		-e DB_URL=http://url-shortener-db:9000 \
 		$(LOCAL_API_IMAGE)
 
+run-observability:
+	docker compose up --build
+
 restart-api:
 	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw api_vm_name)" \
 		--project=$(PROJECT_ID) \
@@ -87,7 +90,12 @@ restart-db:
 		--project=$(PROJECT_ID) \
 		--zone=$(ZONE)
 
-restart-all: restart-db restart-api
+restart-observability:
+	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw observability_vm_name)" \
+		--project=$(PROJECT_ID) \
+		--zone=$(ZONE)
+
+restart-all: restart-observability restart-db restart-api
 
 wait:
 	@API_URL="$$(terraform -chdir=$(TF_DIR) output -raw base_url)"; \

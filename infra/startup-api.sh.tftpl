@@ -17,4 +17,7 @@ docker run -d \
   -e HTTP_ADDR=:8080 \
   -e BASE_URL="${base_url}" \
   -e DB_URL="${db_url}" \
+  -e OTEL_SERVICE_NAME=url-shortener-api \
+  -e OTEL_EXPORTER_OTLP_ENDPOINT="${otel_endpoint}" \
+  -e OTEL_METRIC_EXPORT_INTERVAL=5000 \
   "${image_uri}"

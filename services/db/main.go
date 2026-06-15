@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+	"scale-eng/internal/observability"
 	"strings"
 	"sync"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
@@ -16,12 +20,20 @@ var (
 )
 
 func main() {
-	http.HandleFunc("/", handle)
+	ctx := context.Background()
+	shutdown, err := observability.Init(ctx, "url-shortener-db")
+	if err != nil {
+		log.Fatalf("init OpenTelemetry: %v", err)
+	}
+	defer observability.Shutdown(ctx, shutdown)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handle)
 	addr := os.Getenv("HTTP_ADDR")
 	if addr == "" {
 		log.Fatal("HTTP_ADDR is required")
 	}
-	log.Fatal(http.ListenAndServe(addr, nil))
+	log.Fatal(http.ListenAndServe(addr, otelhttp.NewHandler(mux, "db")))
 }
 
 func handle(w http.ResponseWriter, r *http.Request) {

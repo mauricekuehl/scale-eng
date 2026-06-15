@@ -33,6 +33,12 @@ variable "db_machine_type" {
   default     = "e2-micro"
 }
 
+variable "observability_machine_type" {
+  description = "Compute Engine machine type for the observability VM."
+  type        = string
+  default     = "e2-small"
+}
+
 variable "image_tag" {
   description = "Docker image tag to run on the VMs."
   type        = string

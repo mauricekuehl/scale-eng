@@ -1,7 +1,8 @@
 FROM golang:1.22-bookworm AS build
 
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
+COPY internal ./internal
 COPY services/db ./services/db
 
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/db ./services/db

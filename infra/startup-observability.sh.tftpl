@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+BASE_DIR=/opt/url-shortener-observability
+
+apt-get update
+apt-get install -y docker.io
+systemctl enable --now docker
+
+mkdir -p \
+  "$BASE_DIR/grafana/dashboards" \
+  "$BASE_DIR/grafana/provisioning/dashboards" \
+  "$BASE_DIR/grafana/provisioning/datasources" \
+  "$BASE_DIR/otel" \
+  "$BASE_DIR/prometheus"
+
+cat > "$BASE_DIR/otel/otel-collector.yaml" <<'EOF_OTEL'
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+
+processors:
+  batch:
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+EOF_OTEL
+
+cat > "$BASE_DIR/prometheus/prometheus.yml" <<'EOF_PROM'
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: otel-collector
+    static_configs:
+      - targets:
+          - otel-collector:8889
+EOF_PROM
+
+cat > "$BASE_DIR/grafana/provisioning/datasources/prometheus.yml" <<'EOF_DATASOURCE'
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+EOF_DATASOURCE
+
+cat > "$BASE_DIR/grafana/provisioning/dashboards/dashboards.yml" <<'EOF_DASHBOARDS'
+apiVersion: 1
+
+providers:
+  - name: url-shortener
+    orgId: 1
+    folder: URL Shortener
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+EOF_DASHBOARDS
+
+cat > "$BASE_DIR/grafana/dashboards/url-shortener-metrics.json" <<'EOF_DASHBOARD_JSON'
+${dashboard_json}
+EOF_DASHBOARD_JSON
+
+docker network create observability >/dev/null 2>&1 || true
+
+docker rm -f grafana prometheus otel-collector || true
+
+docker run -d \
+  --name otel-collector \
+  --network observability \
+  --restart unless-stopped \
+  -p 4318:4318 \
+  -p 8889:8889 \
+  -v "$BASE_DIR/otel/otel-collector.yaml:/etc/otelcol/config.yaml:ro" \
+  otel/opentelemetry-collector-contrib:0.115.1 \
+  --config=/etc/otelcol/config.yaml
+
+docker run -d \
+  --name prometheus \
+  --network observability \
+  --restart unless-stopped \
+  -v "$BASE_DIR/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+  prom/prometheus:v2.55.1 \
+  --config.file=/etc/prometheus/prometheus.yml
+
+docker run -d \
+  --name grafana \
+  --network observability \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -e GF_AUTH_ANONYMOUS_ENABLED=true \
+  -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin \
+  -e GF_AUTH_DISABLE_LOGIN_FORM=true \
+  -v "$BASE_DIR/grafana/provisioning/datasources/prometheus.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro" \
+  -v "$BASE_DIR/grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro" \
+  -v "$BASE_DIR/grafana/dashboards:/var/lib/grafana/dashboards:ro" \
+  grafana/grafana:11.4.0

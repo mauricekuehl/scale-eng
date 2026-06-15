@@ -85,6 +85,26 @@ HTTP_ADDR=:9000 go run ./services/db
 HTTP_ADDR=:8080 DB_URL=http://localhost:9000 BASE_URL=http://localhost:8080 go run ./services/api
 ```
 
+## Metrics
+
+The services use OpenTelemetry HTTP autoinstrumentation for metrics only. Logs
+and traces are not exported. Metrics are enabled when
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+
+Run the app with OpenTelemetry Collector, Prometheus, and Grafana:
+
+```bash
+make run-observability
+```
+
+Then open:
+
+- API: `http://localhost:8080`
+- Grafana: `http://localhost:3000`
+- Prometheus: `http://localhost:9090`
+
+Grafana is provisioned with the `URL Shortener Metrics` dashboard.
+
 ## Usage
 
 Create a short URL:
@@ -169,6 +189,15 @@ each VM pulls its configured image from Artifact Registry and starts Docker.
 Terraform manages the VMs, network, firewall rules, service account, and IAM.
 The Docker registry was created once with `gcloud artifacts repositories create`.
 
+The deployment also creates an observability VM. The API and DB VMs push
+OpenTelemetry metrics to the observability VM's private Collector endpoint.
+Prometheus and Grafana run on that observability VM. After `make deploy`, open
+Grafana with:
+
+```bash
+terraform -chdir=infra output -raw grafana_url
+```
+
 Build both images locally:
 
 ```bash
@@ -193,6 +222,7 @@ Or restart only one component:
 ```bash
 make restart-api
 make restart-db
+make restart-observability
 ```
 
 Full API update:

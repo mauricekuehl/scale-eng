@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -9,18 +10,28 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"scale-eng/internal/observability"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
 	baseURL string
 	dbURL   string
-	client  = &http.Client{Timeout: 3 * time.Second}
+	client  = &http.Client{Timeout: 3 * time.Second, Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	chars   = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 )
 
 func main() {
+	ctx := context.Background()
+	shutdown, err := observability.Init(ctx, "url-shortener-api")
+	if err != nil {
+		log.Fatalf("init OpenTelemetry: %v", err)
+	}
+	defer observability.Shutdown(ctx, shutdown)
+
 	addr := os.Getenv("HTTP_ADDR")
 	baseURL = os.Getenv("BASE_URL")
 	dbURL = os.Getenv("DB_URL")
@@ -28,10 +39,11 @@ func main() {
 		log.Fatal("HTTP_ADDR, BASE_URL and DB_URL are required")
 	}
 
-	http.HandleFunc("/create", create)
-	http.HandleFunc("/", redirect)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/create", create)
+	mux.HandleFunc("/", redirect)
 
-	log.Fatal(http.ListenAndServe(addr, nil))
+	log.Fatal(http.ListenAndServe(addr, otelhttp.NewHandler(mux, "api")))
 }
 
 func create(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +67,7 @@ func create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortCode, err := save(code(), u.String())
+	shortCode, err := save(r.Context(), code(), u.String())
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "db error", http.StatusInternalServerError)
@@ -74,7 +86,7 @@ func redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	originalURL, ok, err := load(code)
+	originalURL, ok, err := load(r.Context(), code)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "db error", http.StatusInternalServerError)
@@ -97,9 +109,9 @@ func code() string {
 	return string(b)
 }
 
-func save(code, originalURL string) (string, error) {
+func save(ctx context.Context, code, originalURL string) (string, error) {
 	body, _ := json.Marshal(map[string]string{"url": originalURL})
-	req, _ := http.NewRequest(http.MethodPut, strings.TrimRight(dbURL, "/")+"/"+code, bytes.NewReader(body))
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPut, strings.TrimRight(dbURL, "/")+"/"+code, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -117,8 +129,9 @@ func save(code, originalURL string) (string, error) {
 	return bodyResp.Code, json.NewDecoder(resp.Body).Decode(&bodyResp)
 }
 
-func load(code string) (string, bool, error) {
-	resp, err := client.Get(strings.TrimRight(dbURL, "/") + "/" + code)
+func load(ctx context.Context, code string) (string, bool, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(dbURL, "/")+"/"+code, nil)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", false, err
 	}

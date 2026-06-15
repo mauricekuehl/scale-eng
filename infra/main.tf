@@ -2,6 +2,7 @@ locals {
   name_prefix   = "url-shortener"
   api_name      = "${local.name_prefix}-api"
   db_name       = "${local.name_prefix}-db"
+  obs_name      = "${local.name_prefix}-observability"
   artifact_host = "${var.region}-docker.pkg.dev"
   api_image     = "${local.artifact_host}/${var.project_id}/${var.repo_name}/api:${var.image_tag}"
   db_image      = "${local.artifact_host}/${var.project_id}/${var.repo_name}/db:${var.image_tag}"
@@ -86,9 +87,76 @@ resource "google_compute_firewall" "db_internal" {
   target_tags = ["url-shortener-db"]
 }
 
+resource "google_compute_firewall" "observability_otlp_internal" {
+  name    = "${local.name_prefix}-observability-otlp-internal"
+  network = google_compute_network.main.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["4318"]
+  }
+
+  source_tags = ["url-shortener-api", "url-shortener-db"]
+  target_tags = ["url-shortener-observability"]
+}
+
+resource "google_compute_firewall" "observability_grafana" {
+  name    = "${local.name_prefix}-observability-grafana"
+  network = google_compute_network.main.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["3000"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["url-shortener-observability"]
+}
+
 resource "google_compute_address" "api" {
   name   = "${local.name_prefix}-api-ip"
   region = var.region
+}
+
+resource "google_compute_address" "observability" {
+  name   = "${local.name_prefix}-observability-ip"
+  region = var.region
+}
+
+resource "google_compute_instance" "observability" {
+  name         = local.obs_name
+  machine_type = var.observability_machine_type
+  zone         = var.zone
+  tags         = ["url-shortener-observability"]
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12"
+      size  = 10
+      type  = "pd-balanced"
+    }
+  }
+
+  network_interface {
+    subnetwork = google_compute_subnetwork.main.id
+
+    access_config {
+      nat_ip = google_compute_address.observability.address
+    }
+  }
+
+  metadata_startup_script = templatefile("${path.module}/startup-observability.sh.tftpl", {
+    dashboard_json = file("${path.module}/../observability/grafana/dashboards/url-shortener-metrics.json")
+  })
+
+  service_account {
+    email  = google_service_account.vm.email
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
+
+  depends_on = [
+    google_project_iam_member.vm_artifact_reader,
+  ]
 }
 
 resource "google_compute_instance" "api" {
@@ -118,6 +186,7 @@ resource "google_compute_instance" "api" {
     image_uri     = local.api_image
     base_url      = "http://${google_compute_address.api.address}"
     db_url        = "http://${google_compute_instance.db.network_interface[0].network_ip}:9000"
+    otel_endpoint = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
   })
 
   service_account {
@@ -151,6 +220,7 @@ resource "google_compute_instance" "db" {
   metadata_startup_script = templatefile("${path.module}/startup-db.sh.tftpl", {
     artifact_host = local.artifact_host
     image_uri     = local.db_image
+    otel_endpoint = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
   })
 
   service_account {
