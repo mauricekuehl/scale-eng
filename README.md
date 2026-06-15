@@ -92,9 +92,9 @@ Terraform manages VMs, networking, firewall rules, service account, and IAM.
 Set the API URL for local or cloud:
 
 ```bash
-API_URL=http://localhost:8080
+export API_URL=http://localhost:8080
 # or
-API_URL="$(terraform -chdir=infra output -raw base_url)"
+export API_URL="$(terraform -chdir=infra output -raw base_url)"
 ```
 
 Create a short URL:
