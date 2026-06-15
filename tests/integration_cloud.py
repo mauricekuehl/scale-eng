@@ -6,7 +6,8 @@ import urllib.request
 import pytest
 
 BASE_URL = os.environ.get("API_URL", "").rstrip("/")
-pytestmark = pytest.mark.skipif(not BASE_URL, reason="API_URL is required")
+if not BASE_URL:
+    pytest.fail("API_URL is required", pytrace=False)
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):

@@ -130,10 +130,10 @@ Validate Python code:
 make validate
 ```
 
-Run cloud integration tests manually:
+Integration tests:
 
 ```bash
-API_URL=http://localhost:8080 python -m pytest tests/integration_cloud.py
+python -m pytest tests/integration_cloud.py
 ```
 
 ## Observability
