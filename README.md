@@ -122,6 +122,41 @@ curl -i "$API_URL/a1B2c3D4"
 Known codes return `302`. Unknown codes return `404`. Invalid create payloads
 return `400`.
 
+## Load Testing
+
+Install k6, start the service locally or deploy it to cloud, and set `API_URL`.
+The wrapper requires one load profile, the target and one test mode:
+
+```bash
+API_URL=http://localhost:8080 ./load-tests/run.sh --spike --read --constant-distribution
+```
+
+Available profiles:
+
+- `--steady`: moderate constant load.
+- `--spike`: fast ramp to high load, then ramp down.
+- `--breakpoint`: slowly increases load until thresholds fail or the configured
+  maximum is reached.
+
+Available targets:
+- `--read`: Test creating short urls
+- `--query`: Test reading short urls
+
+Available read distributions:
+
+- `--constant-distribution`: always reads the same seeded code.
+- `--uniform-distribution`: reads evenly across seeded codes.
+- `--hotspot-distribution`: skews reads toward a small hot set.
+
+For read tests, `SEED_COUNT` defaults to `1000` and can be overridden:
+
+```bash
+SEED_COUNT=5000 API_URL=http://localhost:8080 ./load-tests/run.sh --spike --read --hotspot-distribution
+```
+
+For cloud runs, you may want to run `make restart-db` between load-test runs to
+clear the in-memory DB state.
+
 ## Development
 
 Validate Python code:
@@ -193,4 +228,3 @@ If `<code>` does not exist, the system shall return:
 ```http
 404 Not Found
 ```
-
