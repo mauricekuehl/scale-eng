@@ -8,10 +8,24 @@ Small URL shortener for the Scalability Engineering prototype.
 - `services/db`: FastAPI in-memory store on port `9000`
 - OpenTelemetry Collector, Prometheus, and Grafana for metrics
 
-The API talks to the DB service over HTTP. The DB stores everything in Python
-hash maps, so data is lost when the DB container restarts.
+The API talks to the DB service over HTTP. The DB stores data in Python hash
+maps, so all URLs are lost when the DB container restarts.
 
-## Local
+## Setup
+
+```bash
+gcloud auth login
+gcloud config set project scale-eng-prototyping
+
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Docker, Terraform, and `gcloud` are required for cloud deployment. The Artifact
+Registry repository must exist before pushing images.
+
+## Local Deployment
 
 Run everything with Docker:
 
@@ -19,56 +33,15 @@ Run everything with Docker:
 make local
 ```
 
-Open:
+Endpoints:
 
 - API: `http://localhost:8080`
 - Grafana: `http://localhost:3000`
 - Prometheus: `http://localhost:9090`
 
-Validate Python code:
+## Cloud Deployment
 
-```bash
-python3 -m pip install -r requirements-dev.txt
-make validate
-```
-
-## API
-
-Create a short URL:
-
-```bash
-curl -X POST http://localhost:8080/create \
-  -H 'Content-Type: application/json' \
-  -d '{"url":"https://example.com/some/long/url"}'
-```
-
-Response:
-
-```json
-{
-  "shortUrl": "http://localhost:8080/a1B2c3D4"
-}
-```
-
-Follow a short URL:
-
-```bash
-curl -i http://localhost:8080/a1B2c3D4
-```
-
-Known codes return `302`. Unknown codes return `404`. Invalid create payloads
-return `400`.
-
-## Observability
-
-The Python services start through `opentelemetry-instrument`. Metrics are sent
-to the Collector with OTLP over HTTP. Traces and logs are disabled. The metric
-export interval is `10000` ms.
-
-## Deployment
-
-The deployment uses GCP Compute Engine, Artifact Registry, Docker, Terraform,
-and `gcloud`. Defaults:
+Defaults:
 
 - `PROJECT_ID`: active `gcloud` project
 - `REGION`: `europe-west3`
@@ -76,21 +49,16 @@ and `gcloud`. Defaults:
 - `REPO_NAME`: `url-shortener`
 - `TAG`: output of `whoami`
 
-Build and push images:
+Build, push, deploy, and wait:
 
 ```bash
 make build-all
 make push-all
-```
-
-Create or update infrastructure:
-
-```bash
 make deploy
 make wait
 ```
 
-Print URLs:
+Print deployment outputs:
 
 ```bash
 make outputs
@@ -102,11 +70,14 @@ Run integration tests against the deployed API:
 make test-cloud
 ```
 
-Restart VMs after pushing new images:
+After pushing new images, restart all VMs:
 
 ```bash
 make restart-all
 ```
+
+Per-service build, push, and restart targets are also available, for example
+`make build-api`, `make push-api`, and `make restart-api`.
 
 Destroy infrastructure:
 
@@ -114,14 +85,62 @@ Destroy infrastructure:
 make undeploy
 ```
 
-Terraform manages VMs, networking, firewall rules, service account, and IAM. The
-Artifact Registry repository must exist before pushing images.
+Terraform manages VMs, networking, firewall rules, service account, and IAM.
 
-Use the deployed API:
+## Usage
+
+Set the API URL for local or cloud:
 
 ```bash
+API_URL=http://localhost:8080
+# or
 API_URL="$(terraform -chdir=infra output -raw base_url)"
+```
+
+Create a short URL:
+
+```bash
 curl -X POST "$API_URL/create" \
   -H 'Content-Type: application/json' \
   -d '{"url":"https://example.com/some/long/url"}'
 ```
+
+Response:
+
+```json
+{
+  "shortUrl": "http://some.domain/a1B2c3D4"
+}
+```
+
+Follow a short URL:
+
+```bash
+curl -i "$API_URL/a1B2c3D4"
+```
+
+Known codes return `302`. Unknown codes return `404`. Invalid create payloads
+return `400`.
+
+## Development
+
+Validate Python code:
+
+```bash
+make validate
+```
+
+Run cloud integration tests manually:
+
+```bash
+API_URL=http://localhost:8080 python -m pytest tests/integration_cloud.py
+```
+
+## Observability
+
+The Python services start through `opentelemetry-instrument`. Metrics are sent
+to the Collector with OTLP over HTTP. Traces and logs are disabled. The metric
+export interval is `10000` ms.
+
+To update the Grafana dashboard, make changes in the Grafana UI, export the JSON,
+and replace `observability/grafana/dashboards/url-shortener-metrics.json`.
