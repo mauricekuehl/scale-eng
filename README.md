@@ -160,7 +160,7 @@ clear the in-memory DB state.
 
 To run all available test combinations:
 ```bash
-API_URL=http://localhost:8080 ./load-tests/run-all.sh
+./load-tests/run-all.sh
 ```
 
 You can also add an optional label:
