@@ -130,7 +130,10 @@ export function pickIndex(distribution, size) {
   }
 
   if (distribution === ReadDistribution.HOTSPOT) {
-    return Math.floor(size * Math.random() ** 3);
+    if (Math.random() < 0.8) {
+      return Math.floor(Math.random() * (size * 0.2));
+    }
+    return Math.floor(Math.random() * size);
   }
 
   throw new Error(`unknown DISTRIBUTION: ${distribution}`);

@@ -14,10 +14,10 @@ const API_URL = requireApiUrl();
 const PROFILE = __ENV.PROFILE || LoadProfile.STEADY;
 const DISTRIBUTION = __ENV.DISTRIBUTION || ReadDistribution.UNIFORM;
 const SEED_COUNT = Number.parseInt(__ENV.SEED_COUNT || "1000", 10);
+const READ_RATIO = 0.9;
+const SEED_BATCH_SIZE = 50;
 
 export const options = buildOptions(PROFILE);
-
-const SEED_BATCH_SIZE = 50;
 
 export function setup() {
   if (!Number.isFinite(SEED_COUNT) || SEED_COUNT <= 0) {
@@ -31,7 +31,7 @@ export function setup() {
 
     const requests = [];
     for (let j = i; j < batchEnd; j++) {
-      const url = `https://example.com/load-test/read/${Date.now()}/${j}`;
+      const url = `https://example.com/load-test/mixed/${Date.now()}/${j}`;
       requests.push([
         "POST",
         `${API_URL}/create`,
@@ -46,8 +46,7 @@ export function setup() {
       if (!checkCreateResponse(responses[k])) {
         fail(`failed to seed URL ${i + k}: status ${responses[k].status}`);
       }
-      const shortUrl = responses[k].json("shortUrl");
-      codes.push(shortUrl.split("/").pop());
+      codes.push(responses[k].json("shortUrl").split("/").pop());
     }
   }
 
@@ -59,12 +58,20 @@ export function teardown() {
 }
 
 export default function (data) {
-  const codes = data.codes;
-  const index = pickIndex(DISTRIBUTION, codes.length);
-  const response = http.get(`${API_URL}/${codes[index]}`, { redirects: 0 });
-
-  check(response, {
-    "read returned 302": (res) => res.status === 302,
-    "read returned Location": (res) => typeof res.headers.Location === "string",
-  });
+  if (Math.random() < READ_RATIO) {
+    const index = pickIndex(DISTRIBUTION, data.codes.length);
+    const response = http.get(`${API_URL}/${data.codes[index]}`, { redirects: 0 });
+    check(response, {
+      "read returned 302": (res) => res.status === 302,
+      "read returned Location": (res) => typeof res.headers.Location === "string",
+    });
+  } else {
+    const url = `https://example.com/load-test/mixed/write/${__VU}/${__ITER}/${Date.now()}`;
+    const response = http.post(
+      `${API_URL}/create`,
+      JSON.stringify({ url }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+    checkCreateResponse(response);
+  }
 }

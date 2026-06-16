@@ -141,6 +141,7 @@ Available profiles:
 Available targets:
 - `--query`: Test creating short urls
 - `--read`: Test reading short urls
+- `--mixed`: Test reading & creating short urls
 
 Available read distributions:
 
@@ -156,6 +157,23 @@ SEED_COUNT=5000 API_URL=http://localhost:8080 ./load-tests/run.sh --spike --read
 
 For cloud runs, you may want to run `make restart-db` between load-test runs to
 clear the in-memory DB state.
+
+To run all available test combinations:
+```bash
+API_URL=http://localhost:8080 ./load-tests/run-all.sh
+```
+
+You can also add an optional label:
+```bash
+API_URL=http://localhost:8080 ./load-tests/run-all.sh 3-nodes
+```
+
+### Visualize Results
+
+To visualize the results you can run:
+```bash
+python analyze.py
+```
 
 ## Development
 

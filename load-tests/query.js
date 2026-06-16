@@ -12,6 +12,10 @@ const PROFILE = __ENV.PROFILE || LoadProfile.STEADY;
 
 export const options = buildOptions(PROFILE);
 
+export function teardown() {
+  http.del(`${API_URL}/`);
+}
+
 export default function () {
   const url = `https://example.com/load-test/query/${__VU}/${__ITER}/${Date.now()}`;
   const response = http.post(

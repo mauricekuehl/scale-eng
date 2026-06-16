@@ -38,6 +38,16 @@ async def get_url(code: str) -> dict[str, str]:
         return {"url": urls[code]}
 
 
+# Only for testing purposes
+@app.delete("/")
+async def delete_all() -> dict[str, int]:
+    async with lock:
+        count = len(urls)
+        urls.clear()
+        url_codes.clear()
+    return {"deleted": count}
+
+
 @app.put("/{code}")
 async def put_url(code: str, request: Request) -> JSONResponse:
     original_url = url_from(await json_body(request))

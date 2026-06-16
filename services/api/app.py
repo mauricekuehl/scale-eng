@@ -85,6 +85,17 @@ async def db_put(client: httpx.AsyncClient, code: str, original_url: str) -> htt
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail="db service unavailable") from exc
 
+# Only for testing purposes
+@app.delete("/")
+async def delete_all(request: Request) -> dict[str, int]:
+    client = db_client(request)
+    try:
+        response = await client.delete(f"{DB_URL}/")
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail="db service unavailable") from exc
+    raise_for_db_status(response)
+    return response.json()
+
 
 @app.post("/create", status_code=201)
 async def create(request: Request) -> dict[str, str]:

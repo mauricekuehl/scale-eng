@@ -6,6 +6,7 @@ readonly PROFILE_SPIKE="spike"
 readonly PROFILE_BREAKPOINT="breakpoint"
 readonly MODE_QUERY="query"
 readonly MODE_READ="read"
+readonly MODE_MIXED="mixed"
 readonly DISTRIBUTION_CONSTANT="constant"
 readonly DISTRIBUTION_UNIFORM="uniform"
 readonly DISTRIBUTION_HOTSPOT="hotspot"
@@ -15,6 +16,7 @@ usage() {
 Usage:
   API_URL=http://localhost:8080 ./load-tests/run.sh --steady|--spike|--breakpoint --query
   API_URL=http://localhost:8080 ./load-tests/run.sh --steady|--spike|--breakpoint --read --constant-distribution|--uniform-distribution|--hotspot-distribution
+  API_URL=http://localhost:8080 ./load-tests/run.sh --steady|--spike|--breakpoint --mixed --constant-distribution|--uniform-distribution|--hotspot-distribution
 
 Options:
   --steady                  Moderate constant load.
@@ -22,13 +24,14 @@ Options:
   --breakpoint              Slowly increase load until thresholds fail or max load is reached.
   --query                   Load test POST /create with unique URLs.
   --read                    Seed entries, then load test GET /<code>.
+  --mixed                   Seed entries, then load test 90% GET /<code> and 10% POST /create.
   --constant-distribution   Always read the first seeded code.
   --uniform-distribution    Read evenly across seeded codes.
-  --hotspot-distribution    Read with a simple hot-key skew.
+  --hotspot-distribution    Read with a hotspot distribution: 80% of requests read the top 20% of seeded codes.
 
 Environment:
   API_URL      Required. Base URL of the API under test.
-  SEED_COUNT   Optional for --read. Defaults to 1000.
+  SEED_COUNT   Optional for --read and --mixed. Defaults to 1000.
   BENCHMARK_DIR Optional output directory. Defaults to ./benchmarks.
 USAGE
 }
@@ -57,7 +60,7 @@ for arg in "$@"; do
           ;;
       esac
       ;;
-    --query|--read)
+    --query|--read|--mixed)
       if [[ -n "$mode" ]]; then
         echo "error: choose exactly one test mode" >&2
         usage >&2
@@ -69,6 +72,9 @@ for arg in "$@"; do
           ;;
         --read)
           mode="$MODE_READ"
+          ;;
+        --mixed)
+          mode="$MODE_MIXED"
           ;;
       esac
       ;;
@@ -125,14 +131,14 @@ if [[ -z "$mode" ]]; then
   exit 2
 fi
 
-if [[ "$mode" == "$MODE_READ" && -z "$distribution" ]]; then
-  echo "error: --read requires a distribution" >&2
+if [[ ("$mode" == "$MODE_READ" || "$mode" == "$MODE_MIXED") && -z "$distribution" ]]; then
+  echo "error: --${mode} requires a distribution" >&2
   usage >&2
   exit 2
 fi
 
 if [[ "$mode" == "$MODE_QUERY" && -n "$distribution" ]]; then
-  echo "error: distributions are only valid with --read" >&2
+  echo "error: distributions are only valid with --read and --mixed" >&2
   usage >&2
   exit 2
 fi
@@ -148,7 +154,7 @@ repo_dir="$(cd "$script_dir/.." && pwd)"
 benchmark_dir="${BENCHMARK_DIR:-$repo_dir/benchmarks}"
 timestamp="$(date -u +"%Y%m%dT%H%M%SZ")"
 benchmark_name="$timestamp-$profile-$mode"
-if [[ "$mode" == "$MODE_READ" ]]; then
+if [[ "$mode" == "$MODE_READ" || "$mode" == "$MODE_MIXED" ]]; then
   benchmark_name="$benchmark_name-$distribution"
 fi
 benchmark_file="$benchmark_dir/$benchmark_name-summary.json"
