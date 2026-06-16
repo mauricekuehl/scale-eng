@@ -1,0 +1,11 @@
+# Copy this file to terraform.tfvars and fill in your values.
+
+project_id = "your-gcp-project-id"
+
+# region                    = "europe-west3"
+# zone                      = "europe-west3-a"
+# repo_name                 = "url-shortener"
+# api_machine_type          = "e2-micro"
+# db_machine_type           = "e2-micro"
+# observability_machine_type = "e2-small"
+# image_tag                 = "latest"
