@@ -1,6 +1,6 @@
 PROJECT_ID ?= $(shell gcloud config get-value project 2>/dev/null)
-REGION ?= europe-west10
-ZONE ?= europe-west10-a
+REGION ?= europe-west1
+ZONE ?= europe-west1-a
 REPO_NAME ?= url-shortener
 TF_DIR ?= infra
 TAG := $(shell whoami)
