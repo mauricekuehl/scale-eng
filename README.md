@@ -67,7 +67,7 @@ make outputs
 Run integration tests against the deployed API:
 
 ```bash
-make test-cloud
+make test-integration
 ```
 
 After pushing new images, restart all VMs:
@@ -186,7 +186,7 @@ make validate
 Integration tests:
 
 ```bash
-python -m pytest tests/integration_cloud.py
+python -m pytest tests_integration
 ```
 
 ## Observability

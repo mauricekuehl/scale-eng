@@ -13,9 +13,9 @@ DB_IMAGE := $(ARTIFACT_HOST)/$(PROJECT_ID)/$(REPO_NAME)/db:$(TAG)
 DB_LATEST_IMAGE := $(ARTIFACT_HOST)/$(PROJECT_ID)/$(REPO_NAME)/db:latest
 PLATFORM ?= linux/amd64
 PYTHON ?= python3
-PYTHON_FILES := services tests
+PYTHON_FILES := services tests_integration
 
-.PHONY: local validate lint format-check type-check deploy undeploy build-api build-db build-all push-api push-db push-all test-cloud restart-api restart-db restart-observability restart-all wait outputs
+.PHONY: local validate lint format-check type-check deploy undeploy build-api build-db build-all push-api push-db push-all test-integration restart-api restart-db restart-observability restart-all wait outputs
 
 local:
 	docker compose up --build
@@ -75,8 +75,8 @@ push-db:
 
 push-all: push-api push-db
 
-test-cloud:
-	python3 -m pytest tests/integration_cloud.py
+test-integration:
+	$(PYTHON) -m pytest tests_integration
 
 restart-api:
 	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw api_vm_name)" \
