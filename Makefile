@@ -76,7 +76,7 @@ push-db:
 push-all: push-api push-db
 
 test-cloud:
-	API_URL="$$(terraform -chdir=$(TF_DIR) output -raw base_url)" $(PYTHON) -m pytest tests/integration_cloud.py
+	API_URL="$$(terraform -chdir=$(TF_DIR) output -raw base_url)" python3 tests/integration_cloud.py
 
 restart-api:
 	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw api_vm_name)" \

@@ -36,7 +36,7 @@ variable "db_machine_type" {
 variable "observability_machine_type" {
   description = "Compute Engine machine type for the observability VM."
   type        = string
-  default     = "e2-small"
+  default     = "e2-micro"
 }
 
 variable "image_tag" {
