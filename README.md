@@ -165,7 +165,7 @@ To run all available test combinations:
 
 You can also add an optional label:
 ```bash
-API_URL=http://localhost:8080 ./load-tests/run-all.sh 3-nodes
+./load-tests/run-all.sh 3-nodes
 ```
 
 ### Visualize Results
