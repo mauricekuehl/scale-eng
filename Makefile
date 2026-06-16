@@ -1,5 +1,5 @@
 PROJECT_ID ?= $(shell gcloud config get-value project 2>/dev/null)
-REGION ?= europe-west1
+REGION ?= europe-west10
 ZONE ?= europe-west3-a
 REPO_NAME ?= url-shortener
 TF_DIR ?= infra
