@@ -3,11 +3,12 @@ import http from "k6/http";
 
 import {
   checkCreateResponse,
-  config,
   getOptions,
   pickIndex,
   requireApiUrl,
+  teardown as teardownApi,
 } from "./common.js";
+import { config } from "./config.js";
 
 const modeConfig = config.read;
 const API_URL = requireApiUrl();
@@ -53,7 +54,7 @@ export function setup() {
 }
 
 export function teardown() {
-  http.del(`${API_URL}/`);
+  teardownApi();
 }
 
 export default function (data) {

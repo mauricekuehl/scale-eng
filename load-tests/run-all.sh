@@ -38,8 +38,19 @@ else
 fi
 
 failed=()
+has_run_test=0
+readonly prometheus_settle_seconds=30
 
 run_test() {
+  if [[ "$has_run_test" -eq 1 ]]; then
+    echo ""
+    # Prometheus scrapes every 15s; waiting 30s gives it two chances to collect
+    # post-run metrics before the next benchmark changes the load profile.
+    echo "Waiting ${prometheus_settle_seconds}s for Prometheus to scrape..."
+    sleep "$prometheus_settle_seconds"
+  fi
+  has_run_test=1
+
   echo ""
   echo "==> $*"
   if ! "$script_dir/run.sh" "$@"; then

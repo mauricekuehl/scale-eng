@@ -1,9 +1,8 @@
-import http from "k6/http";
-
 import {
   checkCreateResponse,
   getOptions,
   requireApiUrl,
+  teardown as teardownApi,
 } from "./common.js";
 
 const API_URL = requireApiUrl();
@@ -12,7 +11,7 @@ const PROFILE = __ENV.PROFILE;
 export const options = getOptions("query", PROFILE);
 
 export function teardown() {
-  http.del(`${API_URL}/`);
+  teardownApi();
 }
 
 export default function () {

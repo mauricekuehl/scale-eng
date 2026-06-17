@@ -24,13 +24,15 @@ variable "repo_name" {
 variable "api_machine_type" {
   description = "Compute Engine machine type for the public API VM."
   type        = string
-  default     = "e2-micro"
+  # Use non-shared 1-vCPU VMs for more predictable perf-test results.
+  default = "t2d-standard-1"
 }
 
 variable "db_machine_type" {
   description = "Compute Engine machine type for the private DB VM."
   type        = string
-  default     = "e2-micro"
+  # Use non-shared 1-vCPU VMs for more predictable perf-test results.
+  default = "t2d-standard-1"
 }
 
 variable "observability_machine_type" {
