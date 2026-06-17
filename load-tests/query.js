@@ -1,3 +1,5 @@
+import http from "k6/http";
+
 import {
   checkCreateResponse,
   getOptions,
