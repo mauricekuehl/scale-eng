@@ -1,0 +1,9 @@
+.git
+.terraform
+**/.terraform
+*.tfstate
+*.tfstate.*
+__pycache__
+**/__pycache__
+.venv
+*.pyc

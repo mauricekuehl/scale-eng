@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+apt-get update
+apt-get install -y docker.io curl python3
+systemctl enable --now docker
+
+TOKEN=$(curl -fsS -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+echo "$TOKEN" | docker login -u oauth2accesstoken --password-stdin "https://${artifact_host}"
+
+docker pull "${image_uri}"
+docker rm -f api || true
+docker run -d \
+  --name api \
+  --restart unless-stopped \
+  -p 80:8080 \
+  -e BASE_URL="${base_url}" \
+  -e DB_URL="${db_url}" \
+  -e OTEL_SERVICE_NAME=url-shortener-api \
+  -e OTEL_EXPORTER_OTLP_ENDPOINT="${otel_endpoint}" \
+  -e OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+  -e OTEL_METRICS_EXPORTER=otlp \
+  -e OTEL_TRACES_EXPORTER=none \
+  -e OTEL_LOGS_EXPORTER=none \
+  -e OTEL_METRIC_EXPORT_INTERVAL=10000 \
+  -e OTEL_METRIC_EXPORT_TIMEOUT=30000 \
+  -e OTEL_RESOURCE_ATTRIBUTES=service.namespace=url-shortener \
+  "${image_uri}"
