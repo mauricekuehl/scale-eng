@@ -31,7 +31,6 @@ Options:
 
 Environment:
   API_URL      Required. Base URL of the API under test.
-  SEED_COUNT   Optional for --read and --mixed. Defaults to 1000.
   BENCHMARK_DIR Optional output directory. Defaults to ./benchmarks.
 USAGE
 }
@@ -162,7 +161,7 @@ benchmark_file="$benchmark_dir/$benchmark_name-summary.json"
 mkdir -p "$benchmark_dir"
 
 args=(-e "API_URL=$API_URL" -e "PROFILE=$profile")
-if [[ "$mode" == "$MODE_READ" ]]; then
+if [[ "$mode" == "$MODE_READ" || "$mode" == "$MODE_MIXED" ]]; then
   args+=(-e "DISTRIBUTION=$distribution")
 fi
 

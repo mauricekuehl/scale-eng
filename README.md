@@ -128,7 +128,7 @@ Install k6, start the service locally or deploy it to cloud, and set `API_URL`.
 The wrapper requires one load profile, the target and one test mode:
 
 ```bash
-API_URL=http://localhost:8080 ./load-tests/run.sh --spike --read --constant-distribution
+./load-tests/run.sh --spike --read --constant-distribution
 ```
 
 Available profiles:
@@ -148,12 +148,6 @@ Available read distributions:
 - `--constant-distribution`: always reads the same seeded code.
 - `--uniform-distribution`: reads evenly across seeded codes.
 - `--hotspot-distribution`: skews reads toward a small hot set.
-
-For read tests, `SEED_COUNT` defaults to `1000` and can be overridden:
-
-```bash
-SEED_COUNT=5000 API_URL=http://localhost:8080 ./load-tests/run.sh --spike --read --hotspot-distribution
-```
 
 For cloud runs, you may want to run `make restart-db` between load-test runs to
 clear the in-memory DB state.

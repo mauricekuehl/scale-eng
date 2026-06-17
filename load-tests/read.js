@@ -2,32 +2,30 @@ import { check, fail } from "k6";
 import http from "k6/http";
 
 import {
-  LoadProfile,
-  ReadDistribution,
-  buildOptions,
   checkCreateResponse,
+  config,
+  getOptions,
   pickIndex,
   requireApiUrl,
 } from "./common.js";
 
+const modeConfig = config.read;
 const API_URL = requireApiUrl();
-const PROFILE = __ENV.PROFILE || LoadProfile.STEADY;
-const DISTRIBUTION = __ENV.DISTRIBUTION || ReadDistribution.UNIFORM;
-const SEED_COUNT = Number.parseInt(__ENV.SEED_COUNT || "1000", 10);
+const PROFILE = __ENV.PROFILE;
+const DISTRIBUTION = __ENV.DISTRIBUTION;
+const seedCount = modeConfig.seedCount;
 
-export const options = buildOptions(PROFILE);
-
-const SEED_BATCH_SIZE = 50;
+export const options = getOptions("read", PROFILE);
 
 export function setup() {
-  if (!Number.isFinite(SEED_COUNT) || SEED_COUNT <= 0) {
-    fail("SEED_COUNT must be a positive integer");
+  if (!Number.isFinite(seedCount) || seedCount <= 0) {
+    fail("config.read.seedCount must be a positive integer");
   }
 
   const codes = [];
 
-  for (let i = 0; i < SEED_COUNT; i += SEED_BATCH_SIZE) {
-    const batchEnd = Math.min(i + SEED_BATCH_SIZE, SEED_COUNT);
+  for (let i = 0; i < seedCount; i += modeConfig.seedBatchSize) {
+    const batchEnd = Math.min(i + modeConfig.seedBatchSize, seedCount);
 
     const requests = [];
     for (let j = i; j < batchEnd; j++) {
@@ -60,7 +58,7 @@ export function teardown() {
 
 export default function (data) {
   const codes = data.codes;
-  const index = pickIndex(DISTRIBUTION, codes.length);
+  const index = pickIndex("read", DISTRIBUTION, codes.length);
   const response = http.get(`${API_URL}/${codes[index]}`, { redirects: 0 });
 
   check(response, {

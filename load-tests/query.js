@@ -1,16 +1,15 @@
 import http from "k6/http";
 
 import {
-  LoadProfile,
-  buildOptions,
   checkCreateResponse,
+  getOptions,
   requireApiUrl,
 } from "./common.js";
 
 const API_URL = requireApiUrl();
-const PROFILE = __ENV.PROFILE || LoadProfile.STEADY;
+const PROFILE = __ENV.PROFILE;
 
-export const options = buildOptions(PROFILE);
+export const options = getOptions("query", PROFILE);
 
 export function teardown() {
   http.del(`${API_URL}/`);
