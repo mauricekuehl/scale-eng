@@ -167,9 +167,6 @@ if [[ "$mode" == "$MODE_READ" || "$mode" == "$MODE_MIXED" ]]; then
   args+=(-e "DISTRIBUTION=$distribution")
 fi
 
-# k6's built-in web dashboard renders the latency/throughput time series and
-# writes a self-contained HTML report on exit. This is the per-run graph used to
-# read the saturation knee (the throughput just before p95 crosses the SLO).
 outputs=()
 if [[ "${K6_TIMESERIES:-0}" == "1" ]]; then
   timeseries_file="$benchmark_dir/$benchmark_name-timeseries.json.gz"

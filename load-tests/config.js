@@ -20,25 +20,22 @@ const SLO_ERROR_RATE = (() => {
   return Number.isFinite(value) && value >= 0 ? value : 0.01;
 })();
 
-// --- Breakpoint ramp. Calibrate RATE_MAX so the strongest config breaches the SLO
-//     a little before the ramp ends (so you can read the knee off the graph). ---
+// --- Breakpoint
 const BREAKPOINT_RATE_START = num("BREAKPOINT_RATE_START", 25);
 const BREAKPOINT_RATE_MAX = num("BREAKPOINT_RATE_MAX", 500);
 const BREAKPOINT_RAMP = __ENV.BREAKPOINT_RAMP || "8m";
-// VUs must never be the bottleneck, or k6 reports a generator limit as if the
-// system saturated. Keep this generous relative to RATE_MAX.
 const BREAKPOINT_MAX_VUS = num("BREAKPOINT_MAX_VUS", Math.max(1000, BREAKPOINT_RATE_MAX * 2));
 
-// --- Spike: used for the overload-mitigation demo (requirement 3), not for capacity. ---
+// --- Spike
 const SPIKE_PEAK = num("SPIKE_PEAK_VUS", 100);
 const SPIKE_BASE = num("SPIKE_BASE_VUS", 20);
 
-// --- Steady: closed-model sanity check only. Not a scaling metric. ---
+// --- Steady
 const STEADY_VUS = num("STEADY_VUS", 20);
 const STEADY_DURATION = __ENV.STEADY_DURATION || "2m";
 
-// --- Seeding for read/mixed. Enough keys to spread reads across shards. ---
-const SEED_COUNT = num("SEED_COUNT", 5000);
+// --- Seeding
+const SEED_COUNT = num("SEED_COUNT", 2000);
 const SEED_BATCH_SIZE = num("SEED_BATCH_SIZE", 100);
 
 function sloThresholds(abortOnFail) {
@@ -52,7 +49,7 @@ function sloThresholds(abortOnFail) {
   };
 }
 
-// One profile definition shared by query/read/mixed so parameters live in a single place.
+
 function makeProfiles() {
   return {
     steady: {
@@ -87,8 +84,6 @@ function makeProfiles() {
           startRate: BREAKPOINT_RATE_START,
           preAllocatedVUs: Math.min(BREAKPOINT_MAX_VUS, 200),
           maxVUs: BREAKPOINT_MAX_VUS,
-          // Single linear ramp from start -> max. abortOnFail stops the run at the
-          // knee, so the arrival rate at abort time approximates the capacity.
           stages: [{ duration: BREAKPOINT_RAMP, target: BREAKPOINT_RATE_MAX }],
         },
       },

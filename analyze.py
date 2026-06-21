@@ -126,15 +126,11 @@ def plot_metric(
 
 
 def label_sort_key(label: str) -> tuple[float, str]:
-    # Sort node-count labels ("1-node", "3-node", ...) numerically, others A-Z.
     m = re.match(r"^(\d+)", label)
     return (float(m.group(1)) if m else float("inf"), label)
 
 
 def plot_scaling(runs: list[Run], ax: plt.Axes) -> None:
-    # The headline slide: throughput per variant as the configuration scales out.
-    # x = label (e.g. node count), one line per variant. A well-scaling system
-    # produces upward-sloping lines.
     variant_values: dict[str, dict[str, float]] = defaultdict(dict)
     for run in runs:
         variant_values[run.variant][run.label] = run.req_rate
@@ -174,8 +170,6 @@ def main() -> None:
     labels = sorted({r.label for r in runs}, key=label_sort_key)
     print(f"Loaded {len(runs)} result(s) across {len(labels)} run(s): {', '.join(labels)}")
 
-    # Add the scaling-curve panel only when there is more than one configuration
-    # to compare; with a single label it would just be disconnected dots.
     n_rows = 4 if len(labels) > 1 else 3
     width = max(14, len({r.variant for r in runs}))
     fig, axes = plt.subplots(n_rows, 1, figsize=(width, n_rows * 5.3))
