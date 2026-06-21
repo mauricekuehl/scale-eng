@@ -10,14 +10,14 @@ import {
 } from "./common.js";
 import { config } from "./config.js";
 
-const readConfig = config.read;
+const mixedConfig = config.mixed;
 const API_URL = requireApiUrl();
 const PROFILE = __ENV.PROFILE;
 const DISTRIBUTION = __ENV.DISTRIBUTION;
-const seedCount = readConfig.seedCount;
+const seedCount = mixedConfig.seedCount;
 const READ_RATIO = 0.9;
 
-export const options = getOptions("query", PROFILE);
+export const options = getOptions("mixed", PROFILE);
 
 export function setup() {
   if (!Number.isFinite(seedCount) || seedCount <= 0) {
@@ -26,8 +26,8 @@ export function setup() {
 
   const codes = [];
 
-  for (let i = 0; i < seedCount; i += readConfig.seedBatchSize) {
-    const batchEnd = Math.min(i + readConfig.seedBatchSize, seedCount);
+  for (let i = 0; i < seedCount; i += mixedConfig.seedBatchSize) {
+    const batchEnd = Math.min(i + mixedConfig.seedBatchSize, seedCount);
 
     const requests = [];
     for (let j = i; j < batchEnd; j++) {
@@ -59,7 +59,7 @@ export function teardown() {
 
 export default function (data) {
   if (Math.random() < READ_RATIO) {
-    const index = pickIndex("read", DISTRIBUTION, data.codes.length);
+    const index = pickIndex("mixed", DISTRIBUTION, data.codes.length);
     const response = http.get(`${API_URL}/${data.codes[index]}`, { redirects: 0 });
     check(response, {
       "read returned 302": (res) => res.status === 302,
