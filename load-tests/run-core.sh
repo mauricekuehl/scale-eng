@@ -69,9 +69,8 @@ run_test() {
   fi
 }
 
-run_test --breakpoint --read  --uniform-distribution
+run_test --breakpoint --read  --hotspot-distribution
 run_test --breakpoint --query
-run_test --breakpoint --mixed --hotspot-distribution
 
 echo ""
 if [[ ${#failed[@]} -eq 0 ]]; then

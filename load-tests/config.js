@@ -101,10 +101,17 @@ const distributions = {
   },
   hotspot: {
     pickIndex: (size) => {
-      if (Math.random() < 0.8) {
-        return Math.floor(Math.random() * (size * 0.2));
-      }
-      return Math.floor(Math.random() * size);
+      const alpha = 1.2;
+      const p = Math.random();
+
+      const a = 1 - alpha;
+
+      const x = Math.pow(
+        1 + p * (Math.pow(size, a) - 1),
+        1 / a
+      );
+
+      return Math.floor(x) - 1;
     },
   },
 };

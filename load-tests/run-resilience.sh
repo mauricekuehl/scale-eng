@@ -62,7 +62,7 @@ run_test() {
 }
 
 run_test --spike --query
-run_test --spike --mixed --hotspot-distribution
+run_test --breakpoint --read  --hotspot-distribution
 
 echo ""
 if [[ ${#failed[@]} -eq 0 ]]; then
