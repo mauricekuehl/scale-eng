@@ -127,6 +127,19 @@ resource "google_compute_firewall" "observability_grafana" {
   target_tags   = ["url-shortener-observability"]
 }
 
+resource "google_compute_firewall" "lb_metrics_internal" {
+  name    = "${local.name_prefix}-lb-metrics-internal"
+  network = google_compute_network.main.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["9113"]
+  }
+
+  source_tags = ["url-shortener-observability"]
+  target_tags = ["url-shortener-lb"]
+}
+
 resource "google_compute_address" "lb" {
   name   = "${local.name_prefix}-lb-ip"
   region = var.region
@@ -160,7 +173,8 @@ resource "google_compute_instance" "observability" {
   }
 
   metadata_startup_script = templatefile("${path.module}/startup-observability.sh.tftpl", {
-    dashboard_json = file("${path.module}/../observability/grafana/dashboards/url-shortener-metrics.json")
+    dashboard_json    = file("${path.module}/../observability/grafana/dashboards/url-shortener-metrics.json")
+    lb_metrics_target = "${local.lb_name}.${var.zone}.c.${var.project_id}.internal:9113"
   })
 
   service_account {

@@ -2,7 +2,8 @@
 set -euxo pipefail
 
 apt-get update
-apt-get install -y nginx
+apt-get install -y docker.io nginx
+systemctl enable --now docker
 
 cat >/etc/nginx/nginx.conf <<'NGINX'
 user www-data;
@@ -37,9 +38,30 @@ http {
       proxy_request_buffering off;
     }
   }
+
+  server {
+    listen 127.0.0.1:8080;
+    server_name localhost;
+
+    location /nginx_status {
+      stub_status;
+      access_log off;
+      allow 127.0.0.1;
+      deny all;
+    }
+  }
 }
 NGINX
 
 nginx -t
 systemctl enable --now nginx
 systemctl reload nginx
+
+docker rm -f nginx-exporter || true
+docker run -d \
+  --name nginx-exporter \
+  --network host \
+  --restart unless-stopped \
+  nginx/nginx-prometheus-exporter:1.4.2 \
+  --nginx.scrape-uri=http://127.0.0.1:8080/nginx_status \
+  --web.listen-address=:9113
