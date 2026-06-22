@@ -176,6 +176,12 @@ fi
 
 echo "Writing k6 summary to $benchmark_file"
 echo "Writing k6 HTML report to $report_file"
-K6_WEB_DASHBOARD=true \
-K6_WEB_DASHBOARD_EXPORT="$report_file" \
-  k6 run --summary-export "$benchmark_file" "${outputs[@]}" "${args[@]}" "$script"
+if [[ "${K6_TIMESERIES:-0}" == "1" ]]; then
+  K6_WEB_DASHBOARD=true \
+  K6_WEB_DASHBOARD_EXPORT="$report_file" \
+    k6 run --summary-export "$benchmark_file" "${outputs[@]}" "${args[@]}" "$script"
+else
+  K6_WEB_DASHBOARD=true \
+  K6_WEB_DASHBOARD_EXPORT="$report_file" \
+    k6 run --summary-export "$benchmark_file" "${args[@]}" "$script"
+fi

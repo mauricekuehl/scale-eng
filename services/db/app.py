@@ -1,3 +1,4 @@
+import gc
 from typing import cast
 
 from fastapi import FastAPI, HTTPException, Request
@@ -42,6 +43,7 @@ async def delete_all() -> dict[str, int]:
     count = len(urls)
     urls.clear()
     url_codes.clear()
+    gc.collect()
     return {"deleted": count}
 
 

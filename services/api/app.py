@@ -85,6 +85,7 @@ async def db_put(client: httpx.AsyncClient, code: str, original_url: str) -> htt
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail="db service unavailable") from exc
 
+
 # Only for testing purposes
 @app.delete("/")
 async def delete_all(request: Request) -> dict[str, int]:

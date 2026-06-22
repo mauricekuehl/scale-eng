@@ -183,7 +183,7 @@ python analyze.py
 
 ## Development
 
-Validate Python code:
+Validate and auto-fix Python code:
 
 ```bash
 make validate
