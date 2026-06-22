@@ -118,7 +118,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -225,7 +225,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -325,7 +325,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -440,7 +440,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -536,7 +536,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -645,7 +645,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -749,7 +749,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -853,7 +853,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -949,7 +949,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -1066,7 +1066,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -1170,7 +1170,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -1274,7 +1274,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -1400,7 +1400,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -1515,7 +1515,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -1632,7 +1632,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -1739,7 +1739,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -1839,7 +1839,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -1954,7 +1954,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -2050,7 +2050,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
@@ -2146,7 +2146,7 @@
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "all",
           "sort": "none"
         }
       },
