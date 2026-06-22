@@ -5,6 +5,8 @@ project_id = "your-gcp-project-id"
 # region                    = "europe-west3"
 # zone                      = "europe-west3-a"
 # repo_name                 = "url-shortener"
+# api_server_count          = 3
+# lb_machine_type           = "e2-micro"
 # Use non-shared 1-vCPU VMs for more predictable perf-test results.
 # api_machine_type          = "t2d-standard-1"
 # db_machine_type           = "t2d-standard-1"

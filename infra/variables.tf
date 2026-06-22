@@ -22,10 +22,27 @@ variable "repo_name" {
 }
 
 variable "api_machine_type" {
-  description = "Compute Engine machine type for the public API VM."
+  description = "Compute Engine machine type for each private API VM."
   type        = string
   # Use non-shared 1-vCPU VMs for more predictable perf-test results.
   default = "t2d-standard-1"
+}
+
+variable "api_server_count" {
+  description = "Number of private API VMs behind the Nginx load balancer."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.api_server_count > 0
+    error_message = "api_server_count must be greater than 0."
+  }
+}
+
+variable "lb_machine_type" {
+  description = "Compute Engine machine type for the public Nginx load balancer VM."
+  type        = string
+  default     = "e2-micro"
 }
 
 variable "db_machine_type" {

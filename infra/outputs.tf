@@ -1,11 +1,11 @@
-output "api_external_ip" {
-  description = "Public external IPv4 address of the API VM."
-  value       = google_compute_address.api.address
+output "lb_external_ip" {
+  description = "Public external IPv4 address of the Nginx load balancer VM."
+  value       = google_compute_address.lb.address
 }
 
-output "api_internal_ip" {
-  description = "Internal IPv4 address of the API VM."
-  value       = google_compute_instance.api.network_interface[0].network_ip
+output "api_internal_ips" {
+  description = "Internal IPv4 addresses of the private API VMs."
+  value       = google_compute_instance.api[*].network_interface[0].network_ip
 }
 
 output "db_internal_ip" {
@@ -23,9 +23,14 @@ output "observability_internal_ip" {
   value       = google_compute_instance.observability.network_interface[0].network_ip
 }
 
-output "api_vm_name" {
-  description = "Compute Engine instance name for the API VM."
-  value       = google_compute_instance.api.name
+output "lb_vm_name" {
+  description = "Compute Engine instance name for the load balancer VM."
+  value       = google_compute_instance.lb.name
+}
+
+output "api_vm_names" {
+  description = "Compute Engine instance names for the API VMs."
+  value       = google_compute_instance.api[*].name
 }
 
 output "db_vm_name" {
@@ -40,7 +45,7 @@ output "observability_vm_name" {
 
 output "base_url" {
   description = "Default HTTP base URL for the public API."
-  value       = "http://${google_compute_address.api.address}"
+  value       = "http://${google_compute_address.lb.address}"
 }
 
 output "grafana_url" {
