@@ -125,6 +125,38 @@ def plot_metric(
         ax.legend()
 
 
+def label_sort_key(label: str) -> tuple[float, str]:
+    m = re.match(r"^(\d+)", label)
+    return (float(m.group(1)) if m else float("inf"), label)
+
+
+def plot_scaling(runs: list[Run], ax: plt.Axes) -> None:
+    variant_values: dict[str, dict[str, float]] = defaultdict(dict)
+    for run in runs:
+        variant_values[run.variant][run.label] = run.req_rate
+
+    labels = sorted({r.label for r in runs}, key=label_sort_key)
+    for variant in sorted(variant_values):
+        values = [variant_values[variant].get(label) for label in labels]
+        ax.plot(labels, values, marker="o", label=variant)
+        for x, val in enumerate(values):
+            if val:
+                ax.annotate(
+                    f"{val:.0f}",
+                    (x, val),
+                    textcoords="offset points",
+                    xytext=(0, 6),
+                    ha="center",
+                    fontsize=7,
+                )
+
+    ax.set_ylabel("req/s")
+    ax.set_title("Throughput vs Configuration (scaling curve)")
+    ax.yaxis.grid(True, linestyle="--", alpha=0.5)
+    ax.set_axisbelow(True)
+    ax.legend()
+
+
 def main() -> None:
     if not BENCHMARKS_DIR.exists():
         print(f"error: {BENCHMARKS_DIR} does not exist", file=sys.stderr)
@@ -135,15 +167,19 @@ def main() -> None:
         print("No benchmark files found.", file=sys.stderr)
         sys.exit(1)
 
-    labels = sorted({r.label for r in runs})
+    labels = sorted({r.label for r in runs}, key=label_sort_key)
     print(f"Loaded {len(runs)} result(s) across {len(labels)} run(s): {', '.join(labels)}")
 
-    fig, axes = plt.subplots(3, 1, figsize=(max(14, len({r.variant for r in runs})), 16))
+    n_rows = 4 if len(labels) > 1 else 3
+    width = max(14, len({r.variant for r in runs}))
+    fig, axes = plt.subplots(n_rows, 1, figsize=(width, n_rows * 5.3))
     fig.suptitle("Load Test Results", fontsize=14, fontweight="bold", y=1.01)
 
     plot_metric(runs, "p95_ms",    "ms",        "p95 Response Time",  axes[0])
     plot_metric(runs, "error_pct", "Error (%)", "Error Rate",         axes[1])
     plot_metric(runs, "req_rate",  "req/s",     "Throughput",         axes[2])
+    if n_rows == 4:
+        plot_scaling(runs, axes[3])
 
     fig.tight_layout()
 

@@ -32,6 +32,7 @@ Options:
 Environment:
   API_URL      Required. Base URL of the API under test.
   BENCHMARK_DIR Optional output directory. Defaults to ./benchmarks.
+  K6_TIMESERIES Optional. Set to 1 to also export raw time-series JSON (large).
 USAGE
 }
 
@@ -157,6 +158,7 @@ if [[ "$mode" == "$MODE_READ" || "$mode" == "$MODE_MIXED" ]]; then
   benchmark_name="$benchmark_name-$distribution"
 fi
 benchmark_file="$benchmark_dir/$benchmark_name-summary.json"
+report_file="$benchmark_dir/$benchmark_name-report.html"
 
 mkdir -p "$benchmark_dir"
 
@@ -165,5 +167,21 @@ if [[ "$mode" == "$MODE_READ" || "$mode" == "$MODE_MIXED" ]]; then
   args+=(-e "DISTRIBUTION=$distribution")
 fi
 
+outputs=()
+if [[ "${K6_TIMESERIES:-0}" == "1" ]]; then
+  timeseries_file="$benchmark_dir/$benchmark_name-timeseries.json.gz"
+  outputs+=(--out "json=$timeseries_file")
+  echo "Writing time-series JSON to $timeseries_file"
+fi
+
 echo "Writing k6 summary to $benchmark_file"
-k6 run --summary-export "$benchmark_file" "${args[@]}" "$script"
+echo "Writing k6 HTML report to $report_file"
+if [[ "${K6_TIMESERIES:-0}" == "1" ]]; then
+  K6_WEB_DASHBOARD=true \
+  K6_WEB_DASHBOARD_EXPORT="$report_file" \
+    k6 run --summary-export "$benchmark_file" "${outputs[@]}" "${args[@]}" "$script"
+else
+  K6_WEB_DASHBOARD=true \
+  K6_WEB_DASHBOARD_EXPORT="$report_file" \
+    k6 run --summary-export "$benchmark_file" "${args[@]}" "$script"
+fi

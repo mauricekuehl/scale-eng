@@ -15,18 +15,18 @@ PLATFORM ?= linux/amd64
 PYTHON ?= python3
 PYTHON_FILES := services tests_integration
 
-.PHONY: local validate lint format-check type-check deploy undeploy build-api build-db build-all push-api push-db push-all test-integration restart-api restart-db restart-observability restart-all wait outputs
+.PHONY: local validate lint format type-check deploy undeploy build-api build-db build-all push-api push-db push-all test-integration restart-api restart-db restart-observability restart-all wait outputs
 
 local:
 	docker compose up --build
 
-validate: lint format-check type-check
+validate: lint format type-check
 
 lint:
-	$(PYTHON) -m ruff check $(PYTHON_FILES)
+	$(PYTHON) -m ruff check --fix $(PYTHON_FILES)
 
-format-check:
-	$(PYTHON) -m ruff format --check $(PYTHON_FILES)
+format:
+	$(PYTHON) -m ruff format $(PYTHON_FILES)
 
 type-check:
 	$(PYTHON) -m ty check $(PYTHON_FILES)

@@ -1,218 +1,106 @@
-export const config = Object.freeze({
-  query: {
-    profiles: {
-      steady: {
-        scenarios: {
-          steady: {
-            executor: "constant-vus",
-            vus: 20,
-            duration: "2m",
-          },
+// Central tuning surface for all load tests.
+//
+// The headline metric is "maximum sustained throughput while the SLO holds".
+// The breakpoint profile ramps an open-model arrival rate upward until the SLO
+// is breached, so a faster system (e.g. after sharding the DB) reaches a higher
+// rate before aborting. Calibrate the breakpoint max rate against your *strongest*
+// configuration once, then keep it fixed so every config is comparable.
+//
+function sloThresholds(abortOnFail) {
+  return {
+    http_req_failed: [
+      { threshold: "rate<0.01", abortOnFail, delayAbortEval: "30s" },
+    ],
+    http_req_duration: [
+      { threshold: "p(95)<500", abortOnFail, delayAbortEval: "30s" },
+    ],
+  };
+}
+
+
+function makeProfiles() {
+  return {
+    steady: {
+      setupTimeout: "5m",
+      scenarios: {
+        steady: {
+          executor: "constant-vus",
+          vus: 20,
+          duration: "2m",
         },
-        thresholds: {
-          http_req_failed: [
-            {
-              threshold: "rate<0.05",
-              abortOnFail: false,
-              delayAbortEval: "30s",
-            },
-          ],
-          http_req_duration: [
-            {
-              threshold: "p(95)<2000",
-              abortOnFail: false,
-              delayAbortEval: "30s",
-            },
+      },
+      thresholds: sloThresholds(false),
+    },
+    spike: {
+      setupTimeout: "5m",
+      scenarios: {
+        spike: {
+          executor: "ramping-vus",
+          stages: [
+            { duration: "15s", target: 20 },
+            { duration: "30s", target: 100 },
+            { duration: "1m", target: 100 },
+            { duration: "30s", target: 0 },
           ],
         },
       },
-      spike: {
-        scenarios: {
-          spike: {
-            executor: "ramping-vus",
-            stages: [
-              { duration: "15s", target: 20 },
-              { duration: "30s", target: 100 },
-              { duration: "1m", target: 100 },
-              { duration: "30s", target: 0 },
-            ],
-          },
-        },
-        thresholds: {
-          http_req_failed: [
-            {
-              threshold: "rate<0.05",
-              abortOnFail: false,
-              delayAbortEval: "30s",
-            },
-          ],
-          http_req_duration: [
-            {
-              threshold: "p(95)<2000",
-              abortOnFail: false,
-              delayAbortEval: "30s",
-            },
-          ],
+      thresholds: sloThresholds(false),
+    },
+    breakpoint: {
+      setupTimeout: "5m",
+      scenarios: {
+        breakpoint: {
+          executor: "ramping-arrival-rate",
+          timeUnit: "1s",
+          startRate: 25,
+          preAllocatedVUs: 200,
+          maxVUs: 2000,
+          stages: [{ duration: "10m", target: 1000 }],
         },
       },
-      breakpoint: {
-        scenarios: {
-          breakpoint: {
-            executor: "ramping-arrival-rate",
-            timeUnit: "1s",
-            preAllocatedVUs: 50,
-            maxVUs: 500,
-            stages: [
-              { duration: "1m", target: 10 },
-              { duration: "2m", target: 50 },
-              { duration: "2m", target: 100 },
-              { duration: "2m", target: 200 },
-              { duration: "2m", target: 300 },
-              { duration: "1m", target: 0 },
-            ],
-          },
-        },
-        thresholds: {
-          http_req_failed: [
-            {
-              threshold: "rate<0.05",
-              abortOnFail: true,
-              delayAbortEval: "30s",
-            },
-          ],
-          http_req_duration: [
-            {
-              threshold: "p(95)<2000",
-              abortOnFail: true,
-              delayAbortEval: "30s",
-            },
-          ],
-          dropped_iterations: [
-            {
-              threshold: "count<1",
-              abortOnFail: true,
-              delayAbortEval: "30s",
-            },
-          ],
-        },
-      },
+      thresholds: sloThresholds(true),
+    },
+  };
+}
+
+const distributions = {
+  constant: {
+    pickIndex: () => 0,
+  },
+  uniform: {
+    pickIndex: (size) => Math.floor(Math.random() * size),
+  },
+  hotspot: {
+    pickIndex: (size) => {
+      const alpha = 1.2;
+      const p = Math.random();
+
+      const a = 1 - alpha;
+
+      const x = Math.pow(
+        1 + p * (Math.pow(size, a) - 1),
+        1 / a
+      );
+
+      return Math.floor(x) - 1;
     },
   },
+};
+
+export const config = Object.freeze({
+  query: {
+    profiles: makeProfiles(),
+  },
   read: {
-    seedCount: 1000,
-    seedBatchSize: 50,
-    profiles: {
-      steady: {
-        scenarios: {
-          steady: {
-            executor: "constant-vus",
-            vus: 20,
-            duration: "2m",
-          },
-        },
-        thresholds: {
-          http_req_failed: [
-            {
-              threshold: "rate<0.05",
-              abortOnFail: false,
-              delayAbortEval: "30s",
-            },
-          ],
-          http_req_duration: [
-            {
-              threshold: "p(95)<2000",
-              abortOnFail: false,
-              delayAbortEval: "30s",
-            },
-          ],
-        },
-      },
-      spike: {
-        scenarios: {
-          spike: {
-            executor: "ramping-vus",
-            stages: [
-              { duration: "15s", target: 20 },
-              { duration: "30s", target: 100 },
-              { duration: "1m", target: 100 },
-              { duration: "30s", target: 0 },
-            ],
-          },
-        },
-        thresholds: {
-          http_req_failed: [
-            {
-              threshold: "rate<0.05",
-              abortOnFail: false,
-              delayAbortEval: "30s",
-            },
-          ],
-          http_req_duration: [
-            {
-              threshold: "p(95)<2000",
-              abortOnFail: false,
-              delayAbortEval: "30s",
-            },
-          ],
-        },
-      },
-      breakpoint: {
-        scenarios: {
-          breakpoint: {
-            executor: "ramping-arrival-rate",
-            timeUnit: "1s",
-            preAllocatedVUs: 50,
-            maxVUs: 500,
-            stages: [
-              { duration: "1m", target: 10 },
-              { duration: "2m", target: 50 },
-              { duration: "2m", target: 100 },
-              { duration: "2m", target: 200 },
-              { duration: "2m", target: 300 },
-              { duration: "1m", target: 0 },
-            ],
-          },
-        },
-        thresholds: {
-          http_req_failed: [
-            {
-              threshold: "rate<0.05",
-              abortOnFail: true,
-              delayAbortEval: "30s",
-            },
-          ],
-          http_req_duration: [
-            {
-              threshold: "p(95)<2000",
-              abortOnFail: true,
-              delayAbortEval: "30s",
-            },
-          ],
-          dropped_iterations: [
-            {
-              threshold: "count<1",
-              abortOnFail: true,
-              delayAbortEval: "30s",
-            },
-          ],
-        },
-      },
-    },
-    distributions: {
-      constant: {
-        pickIndex: () => 0,
-      },
-      uniform: {
-        pickIndex: (size) => Math.floor(Math.random() * size),
-      },
-      hotspot: {
-        pickIndex: (size) => {
-          if (Math.random() < 0.8) {
-            return Math.floor(Math.random() * (size * 0.2));
-          }
-          return Math.floor(Math.random() * size);
-        },
-      },
-    },
+    seedCount: 10000,
+    seedBatchSize: 1000,
+    profiles: makeProfiles(),
+    distributions,
+  },
+  mixed: {
+    seedCount: 10000,
+    seedBatchSize: 1000,
+    profiles: makeProfiles(),
+    distributions,
   },
 });

@@ -152,15 +152,27 @@ Available read distributions:
 For cloud runs, you may want to run `make restart-db` between load-test runs to
 clear the in-memory DB state.
 
-To run all available test combinations:
+The headline scaling metric is the maximum sustained throughput at the SLO,
+measured by the breakpoint profile. To run the core scaling suite (three
+breakpoint runs, ~30 min), labelled with the node count:
+
 ```bash
-./load-tests/run-all.sh
+./load-tests/run-core.sh 3-node
 ```
 
-You can also add an optional label:
+Spike-based overload tests live in a separate suite:
+
 ```bash
-./load-tests/run-all.sh 3-nodes
+./load-tests/run-resilience.sh 3-node
 ```
+
+To run the full matrix of all combinations (~2 h):
+```bash
+./load-tests/run-all.sh 3-node
+```
+
+See [load-tests/README.md](load-tests/README.md) for what each benchmark measures
+and how to calibrate the breakpoint ramp.
 
 ### Visualize Results
 
@@ -171,7 +183,7 @@ python analyze.py
 
 ## Development
 
-Validate Python code:
+Validate and auto-fix Python code:
 
 ```bash
 make validate
