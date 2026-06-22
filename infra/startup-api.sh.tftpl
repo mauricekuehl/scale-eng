@@ -24,5 +24,5 @@ docker run -d \
   -e OTEL_LOGS_EXPORTER=none \
   -e OTEL_METRIC_EXPORT_INTERVAL=10000 \
   -e OTEL_METRIC_EXPORT_TIMEOUT=30000 \
-  -e OTEL_RESOURCE_ATTRIBUTES=service.namespace=url-shortener \
+  -e OTEL_RESOURCE_ATTRIBUTES="service.namespace=url-shortener,service.instance.id=$(hostname),host.name=$(hostname)" \
   "${image_uri}"
