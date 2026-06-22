@@ -5,7 +5,13 @@ apt-get update
 apt-get install -y docker.io curl python3
 systemctl enable --now docker
 
-TOKEN=$(curl -fsS -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+TOKEN=""
+for attempt in $(seq 1 30); do
+  TOKEN=$(curl -fsS -H "Metadata-Flavor: Google" "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])') && break
+  echo "Metadata token fetch failed on attempt $attempt; retrying..."
+  sleep 2
+done
+test -n "$TOKEN"
 echo "$TOKEN" | docker login -u oauth2accesstoken --password-stdin "https://${artifact_host}"
 
 docker pull "${image_uri}"
