@@ -42,7 +42,7 @@ variable "api_server_count" {
 variable "lb_machine_type" {
   description = "Compute Engine machine type for the public Nginx load balancer VM."
   type        = string
-  default     = "e2-micro"
+  default     = "t2d-standard-1"
 }
 
 variable "db_machine_type" {
@@ -55,7 +55,7 @@ variable "db_machine_type" {
 variable "observability_machine_type" {
   description = "Compute Engine machine type for the observability VM."
   type        = string
-  default     = "e2-micro"
+  default     = "t2d-standard-1"
 }
 
 variable "image_tag" {
