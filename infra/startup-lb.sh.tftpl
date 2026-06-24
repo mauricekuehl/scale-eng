@@ -57,7 +57,7 @@ nginx -t
 systemctl enable --now nginx
 systemctl reload nginx
 
-docker rm -f nginx-exporter || true
+docker rm -f nginx-exporter node-exporter || true
 docker run -d \
   --name nginx-exporter \
   --network host \
@@ -65,3 +65,13 @@ docker run -d \
   nginx/nginx-prometheus-exporter:1.4.2 \
   --nginx.scrape-uri=http://127.0.0.1:8080/nginx_status \
   --web.listen-address=:9113
+
+docker run -d \
+  --name node-exporter \
+  --network host \
+  --pid host \
+  --restart unless-stopped \
+  -v /:/host:ro,rslave \
+  prom/node-exporter:v1.8.2 \
+  --path.rootfs=/host \
+  --web.listen-address=:9100

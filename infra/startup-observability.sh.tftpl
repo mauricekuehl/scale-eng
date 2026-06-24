@@ -51,6 +51,10 @@ scrape_configs:
     static_configs:
       - targets:
           - ${lb_metrics_target}
+  - job_name: node-lb
+    static_configs:
+      - targets:
+          - ${lb_node_target}
 EOF_PROM
 
 cat > "$BASE_DIR/grafana/provisioning/datasources/prometheus.yml" <<'EOF_DATASOURCE'

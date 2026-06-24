@@ -133,7 +133,7 @@ resource "google_compute_firewall" "lb_metrics_internal" {
 
   allow {
     protocol = "tcp"
-    ports    = ["9113"]
+    ports    = ["9113", "9100"]
   }
 
   source_tags = ["url-shortener-observability"]
@@ -175,6 +175,7 @@ resource "google_compute_instance" "observability" {
   metadata_startup_script = templatefile("${path.module}/startup-observability.sh.tftpl", {
     dashboard_json    = file("${path.module}/../observability/grafana/dashboards/url-shortener-metrics.json")
     lb_metrics_target = "${local.lb_name}.${var.zone}.c.${var.project_id}.internal:9113"
+    lb_node_target    = "${local.lb_name}.${var.zone}.c.${var.project_id}.internal:9100"
   })
 
   service_account {
