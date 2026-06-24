@@ -2,7 +2,7 @@ PROJECT_ID ?= $(shell gcloud config get-value project 2>/dev/null)
 REGION ?= europe-west1
 ZONE ?= europe-west1-b
 REPO_NAME ?= url-shortener
-API_SERVER_COUNT ?= 3
+API_SERVER_COUNT ?= 5
 TF_DIR ?= infra
 TAG := $(shell whoami)
 TF_AUTH := GOOGLE_OAUTH_ACCESS_TOKEN="$$(gcloud auth print-access-token)"
