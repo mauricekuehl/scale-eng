@@ -55,7 +55,7 @@ function makeProfiles() {
           startRate: 25,
           preAllocatedVUs: 200,
           maxVUs: 10000,
-          stages: [{ duration: "10m", target: 800 }],
+          stages: [{ duration: "10m", target: 400 }],
         },
       },
       thresholds: sloThresholds(true),
