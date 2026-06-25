@@ -1,6 +1,7 @@
 locals {
   name_prefix   = "url-shortener"
   api_name      = "${local.name_prefix}-api"
+  lb_name       = "${local.name_prefix}-lb"
   db_name       = "${local.name_prefix}-db"
   obs_name      = "${local.name_prefix}-observability"
   artifact_host = "${var.region}-docker.pkg.dev"
@@ -61,8 +62,8 @@ resource "google_compute_router_nat" "main" {
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 }
 
-resource "google_compute_firewall" "api_http" {
-  name    = "${local.name_prefix}-api-http"
+resource "google_compute_firewall" "lb_http" {
+  name    = "${local.name_prefix}-lb-http"
   network = google_compute_network.main.name
 
   allow {
@@ -71,7 +72,20 @@ resource "google_compute_firewall" "api_http" {
   }
 
   source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["url-shortener-api"]
+  target_tags   = ["url-shortener-lb"]
+}
+
+resource "google_compute_firewall" "api_http_internal" {
+  name    = "${local.name_prefix}-api-http-internal"
+  network = google_compute_network.main.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80"]
+  }
+
+  source_tags = ["url-shortener-lb"]
+  target_tags = ["url-shortener-api"]
 }
 
 resource "google_compute_firewall" "db_internal" {
@@ -113,8 +127,21 @@ resource "google_compute_firewall" "observability_grafana" {
   target_tags   = ["url-shortener-observability"]
 }
 
-resource "google_compute_address" "api" {
-  name   = "${local.name_prefix}-api-ip"
+resource "google_compute_firewall" "lb_metrics_internal" {
+  name    = "${local.name_prefix}-lb-metrics-internal"
+  network = google_compute_network.main.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["9113", "9100"]
+  }
+
+  source_tags = ["url-shortener-observability"]
+  target_tags = ["url-shortener-lb"]
+}
+
+resource "google_compute_address" "lb" {
+  name   = "${local.name_prefix}-lb-ip"
   region = var.region
 }
 
@@ -146,7 +173,9 @@ resource "google_compute_instance" "observability" {
   }
 
   metadata_startup_script = templatefile("${path.module}/startup-observability.sh.tftpl", {
-    dashboard_json = file("${path.module}/../observability/grafana/dashboards/url-shortener-metrics.json")
+    dashboard_json    = file("${path.module}/../observability/grafana/dashboards/url-shortener-metrics.json")
+    lb_metrics_target = "${local.lb_name}.${var.zone}.c.${var.project_id}.internal:9113"
+    lb_node_target    = "${local.lb_name}.${var.zone}.c.${var.project_id}.internal:9100"
   })
 
   service_account {
@@ -159,8 +188,41 @@ resource "google_compute_instance" "observability" {
   ]
 }
 
+resource "google_compute_instance" "lb" {
+  name         = local.lb_name
+  machine_type = var.lb_machine_type
+  zone         = var.zone
+  tags         = ["url-shortener-lb"]
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12"
+      size  = 10
+      type  = "pd-balanced"
+    }
+  }
+
+  network_interface {
+    subnetwork = google_compute_subnetwork.main.id
+
+    access_config {
+      nat_ip = google_compute_address.lb.address
+    }
+  }
+
+  metadata_startup_script = templatefile("${path.module}/startup-lb.sh.tftpl", {
+    api_upstreams = google_compute_instance.api[*].network_interface[0].network_ip
+  })
+
+  service_account {
+    email  = google_service_account.vm.email
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
+}
+
 resource "google_compute_instance" "api" {
-  name         = local.api_name
+  count        = var.api_server_count
+  name         = "${local.api_name}-${count.index + 1}"
   machine_type = var.api_machine_type
   zone         = var.zone
   tags         = ["url-shortener-api"]
@@ -175,16 +237,12 @@ resource "google_compute_instance" "api" {
 
   network_interface {
     subnetwork = google_compute_subnetwork.main.id
-
-    access_config {
-      nat_ip = google_compute_address.api.address
-    }
   }
 
   metadata_startup_script = templatefile("${path.module}/startup-api.sh.tftpl", {
     artifact_host = local.artifact_host
     image_uri     = local.api_image
-    base_url      = "http://${google_compute_address.api.address}"
+    base_url      = "http://${google_compute_address.lb.address}"
     db_url        = "http://${google_compute_instance.db.network_interface[0].network_ip}:9000"
     otel_endpoint = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
   })

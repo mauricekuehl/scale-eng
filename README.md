@@ -6,6 +6,8 @@ Small URL shortener for the Scalability Engineering prototype.
 
 - `services/api`: FastAPI service on port `8080`
 - `services/db`: FastAPI in-memory store on port `9000`
+- Cloud deployment: one public Nginx load balancer VM, configurable private API
+  VM count, and one private DB VM
 - OpenTelemetry Collector, Prometheus, and Grafana for metrics
 
 The API talks to the DB service over HTTP. The DB stores data in Python hash
@@ -48,6 +50,7 @@ Defaults:
 - `ZONE`: `europe-west3-a`
 - `REPO_NAME`: `url-shortener`
 - `TAG`: output of `whoami`
+- `API_SERVER_COUNT`: `3`
 
 Build, push, deploy, and wait:
 

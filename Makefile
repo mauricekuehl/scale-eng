@@ -2,6 +2,7 @@ PROJECT_ID ?= $(shell gcloud config get-value project 2>/dev/null)
 REGION ?= europe-west1
 ZONE ?= europe-west1-b
 REPO_NAME ?= url-shortener
+API_SERVER_COUNT ?= 5
 TF_DIR ?= infra
 TAG := $(shell whoami)
 TF_AUTH := GOOGLE_OAUTH_ACCESS_TOKEN="$$(gcloud auth print-access-token)"
@@ -15,7 +16,7 @@ PLATFORM ?= linux/amd64
 PYTHON ?= python3
 PYTHON_FILES := services tests_integration
 
-.PHONY: local validate lint format type-check deploy undeploy build-api build-db build-all push-api push-db push-all test-integration restart-api restart-db restart-observability restart-all wait outputs
+.PHONY: local validate lint format type-check deploy undeploy build-api build-db build-all push-api push-db push-all test-integration restart-lb restart-api restart-db restart-observability restart-all wait outputs
 
 local:
 	docker compose up --build
@@ -39,6 +40,7 @@ deploy:
 		-var="region=$(REGION)" \
 		-var="zone=$(ZONE)" \
 		-var="repo_name=$(REPO_NAME)" \
+		-var="api_server_count=$(API_SERVER_COUNT)" \
 		-var="image_tag=$(TAG)"
 
 undeploy:
@@ -47,6 +49,7 @@ undeploy:
 		-var="region=$(REGION)" \
 		-var="zone=$(ZONE)" \
 		-var="repo_name=$(REPO_NAME)" \
+		-var="api_server_count=$(API_SERVER_COUNT)" \
 		-var="image_tag=$(TAG)"
 
 build-api:
@@ -78,10 +81,17 @@ push-all: push-api push-db
 test-integration:
 	$(PYTHON) -m pytest tests_integration
 
-restart-api:
-	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw api_vm_name)" \
+restart-lb:
+	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw lb_vm_name)" \
 		--project=$(PROJECT_ID) \
 		--zone=$(ZONE)
+
+restart-api:
+	@terraform -chdir=$(TF_DIR) output -json api_vm_names | $(PYTHON) -c 'import json,sys; print("\n".join(json.load(sys.stdin)))' | while read -r vm; do \
+		gcloud compute instances reset "$$vm" \
+			--project=$(PROJECT_ID) \
+			--zone=$(ZONE); \
+	done
 
 restart-db:
 	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw db_vm_name)" \
@@ -93,7 +103,7 @@ restart-observability:
 		--project=$(PROJECT_ID) \
 		--zone=$(ZONE)
 
-restart-all: restart-observability restart-db restart-api
+restart-all: restart-observability restart-db restart-api restart-lb
 
 wait:
 	@API_URL="$$(terraform -chdir=$(TF_DIR) output -raw base_url)"; \
