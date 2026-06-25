@@ -19,6 +19,10 @@ http {
 %{ for ip in api_upstreams ~}
     server ${ip}:80 max_fails=0;
 %{ endfor ~}
+
+  keepalive 64;
+  keepalive_timeout 60s;
+  keepalive_requests 1000;
   }
 
   server {
