@@ -7,8 +7,11 @@ from typing import cast
 from urllib.parse import urlparse
 
 import httpx
+from cache import LRUCache
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from instrumentation import instrument_cache
+from opentelemetry import metrics
 
 BASE_URL = os.environ["BASE_URL"].rstrip("/")
 DB_URL = os.environ["DB_URL"].rstrip("/")
@@ -17,6 +20,11 @@ CODE_LENGTH = 8
 MAX_CREATE_ATTEMPTS = 10
 DB_TIMEOUT = httpx.Timeout(connect=0.5, read=2.0, write=2.0, pool=0.5)
 DB_LIMITS = httpx.Limits(max_connections=100, max_keepalive_connections=20)
+CACHE_CAPACITY = int(os.environ.get("CACHE_CAPACITY", "1000"))
+
+cache = LRUCache(CACHE_CAPACITY)
+# Expose the cache's cumulative hit/miss counters as OTLP metrics
+instrument_cache(metrics.get_meter("url-shortener-api"), cache)
 
 
 @asynccontextmanager
@@ -95,6 +103,7 @@ async def delete_all(request: Request) -> dict[str, int]:
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail="db service unavailable") from exc
     raise_for_db_status(response)
+    cache.data.clear()
     return response.json()
 
 
@@ -118,8 +127,15 @@ async def redirect(code: str, request: Request) -> RedirectResponse:
     if len(code) != CODE_LENGTH:
         raise HTTPException(status_code=404)
 
+    cached_url = cache.get(code)
+    if cached_url is not None:
+        return RedirectResponse(cached_url, status_code=302)
+
     response = await db_get(db_client(request), code)
     if response.status_code == 404:
         raise HTTPException(status_code=404)
     raise_for_db_status(response)
-    return RedirectResponse(response.json()["url"], status_code=302)
+
+    url = response.json()["url"]
+    cache.put(code, url)
+    return RedirectResponse(url, status_code=302)
