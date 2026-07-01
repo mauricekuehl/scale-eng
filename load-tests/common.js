@@ -24,17 +24,8 @@ export function checkCreateResponse(response) {
   });
 }
 
-// Each API node has its own in-memory cache, and DELETE / clears the DB plus the
-// cache of whichever node the load balancer routes the request to. nginx balances
-// per request, so repeating the DELETE a few times spreads it across the nodes and
-// clears their caches best-effort. Five iterations covers our cluster sizes (<=5).
-const TEARDOWN_DELETE_ITERATIONS = 5;
-
 export function teardown() {
-  const url = `${requireApiUrl()}/`;
-  for (let i = 0; i < TEARDOWN_DELETE_ITERATIONS; i++) {
-    http.del(url);
-  }
+  http.del(`${requireApiUrl()}/`);
 }
 
 export function pickIndex(mode, distribution, size) {
