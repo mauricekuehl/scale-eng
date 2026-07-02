@@ -243,7 +243,9 @@ resource "google_compute_instance" "api" {
     artifact_host = local.artifact_host
     image_uri     = local.api_image
     base_url      = "http://${google_compute_address.lb.address}"
-    db_url        = "http://${google_compute_instance.db.network_interface[0].network_ip}:9000"
+    db_urls = join(",", [
+      for db in google_compute_instance.db : "http://${db.network_interface[0].network_ip}:9000"
+    ])
     otel_endpoint = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
   })
 
@@ -258,7 +260,8 @@ resource "google_compute_instance" "api" {
 }
 
 resource "google_compute_instance" "db" {
-  name         = local.db_name
+  count        = var.db_server_count
+  name         = "${local.db_name}-${count.index + 1}"
   machine_type = var.db_machine_type
   zone         = var.zone
   tags         = ["url-shortener-db"]
