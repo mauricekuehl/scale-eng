@@ -247,6 +247,7 @@ resource "google_compute_instance" "api" {
       for db in google_compute_instance.db : "http://${db.network_interface[0].network_ip}:9000"
     ])
     otel_endpoint = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
+    cache_capacity = var.cache_capacity
   })
 
   service_account {

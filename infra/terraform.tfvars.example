@@ -12,3 +12,4 @@ project_id = "your-gcp-project-id"
 # db_machine_type           = "t2d-standard-1"
 # observability_machine_type = "t2d-standard-1"
 # image_tag                 = "latest"
+# cache_capacity            = 1000

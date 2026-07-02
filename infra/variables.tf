@@ -45,6 +45,12 @@ variable "lb_machine_type" {
   default     = "t2d-standard-1"
 }
 
+variable "cache_capacity" {
+  description = "Per-node API read-cache capacity (entries). 0 or less disables the cache."
+  type        = number
+  default     = 1000
+}
+
 variable "db_machine_type" {
   description = "Compute Engine machine type for the private DB VM."
   type        = string
