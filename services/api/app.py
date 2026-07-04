@@ -1,3 +1,5 @@
+import asyncio
+import hashlib
 import os
 import secrets
 import string
@@ -15,7 +17,6 @@ from opentelemetry import metrics
 from overload import Bulkhead, CircuitBreaker, OverloadError
 
 BASE_URL = os.environ["BASE_URL"].rstrip("/")
-DB_URL = os.environ["DB_URL"].rstrip("/")
 CHARS = string.ascii_letters + string.digits
 CODE_LENGTH = 8
 MAX_CREATE_ATTEMPTS = 10
@@ -38,6 +39,20 @@ cache = LRUCache(CACHE_CAPACITY)
 meter = metrics.get_meter("url-shortener-api")
 instrument_cache(meter, cache)
 instrument_overload(meter, db_bulkhead, db_breaker)
+
+
+def configured_db_urls() -> tuple[str, ...]:
+    raw_urls = os.environ.get("DB_URLS") or os.environ.get("DB_URL")
+    if raw_urls is None:
+        raise RuntimeError("DB_URLS or DB_URL is required")
+
+    urls = tuple(url.strip().rstrip("/") for url in raw_urls.split(",") if url.strip())
+    if not urls:
+        raise RuntimeError("DB_URLS or DB_URL must contain at least one URL")
+    return urls
+
+
+DB_URLS = configured_db_urls()
 
 
 @asynccontextmanager
@@ -86,6 +101,12 @@ def db_client(request: Request) -> httpx.AsyncClient:
     return cast(httpx.AsyncClient, request.app.state.db_client)
 
 
+def shard_url_for_key(key: str) -> str:
+    digest = hashlib.sha256(key.encode()).digest()
+    shard_index = int.from_bytes(digest[:8], "big") % len(DB_URLS)
+    return DB_URLS[shard_index]
+
+
 def raise_for_db_status(response: httpx.Response) -> None:
     try:
         response.raise_for_status()
@@ -113,11 +134,11 @@ async def db_request(send: Callable[[], Awaitable[httpx.Response]]) -> httpx.Res
 
 
 async def db_get(client: httpx.AsyncClient, code: str) -> httpx.Response:
-    return await db_request(lambda: client.get(f"{DB_URL}/{code}"))
+    return await db_request(lambda: client.get(f"{shard_url_for_key(code)}/{code}"))
 
 
 async def db_put(client: httpx.AsyncClient, code: str, original_url: str) -> httpx.Response:
-    return await db_request(lambda: client.put(f"{DB_URL}/{code}", json={"url": original_url}))
+    return await db_request(lambda: client.put(f"{shard_url_for_key(code)}/{code}", json={"url": original_url}))
 
 
 # Only for testing purposes
@@ -125,18 +146,23 @@ async def db_put(client: httpx.AsyncClient, code: str, original_url: str) -> htt
 async def delete_all(request: Request) -> dict[str, int]:
     client = db_client(request)
     try:
-        response = await client.delete(f"{DB_URL}/")
+        responses = await asyncio.gather(*(client.delete(f"{db_url}/") for db_url in DB_URLS))
     except httpx.RequestError as exc:
         raise HTTPException(status_code=503, detail="db service unavailable") from exc
-    raise_for_db_status(response)
+
+    deleted = 0
+    for response in responses:
+        raise_for_db_status(response)
+        deleted += response.json()["deleted"]
     cache.data.clear()
-    return response.json()
+    return {"deleted": deleted}
 
 
 @app.post("/create", status_code=201)
 async def create(request: Request) -> dict[str, str]:
     original_url = url_from(await json_body(request))
     client = db_client(request)
+
     for _ in range(MAX_CREATE_ATTEMPTS):
         code = generate_code()
         response = await db_put(client, code, original_url)

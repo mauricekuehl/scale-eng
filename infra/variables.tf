@@ -31,7 +31,7 @@ variable "api_machine_type" {
 variable "api_server_count" {
   description = "Number of private API VMs behind the Nginx load balancer."
   type        = number
-  default     = 3
+  default     = 5
 
   validation {
     condition     = var.api_server_count > 0
@@ -80,6 +80,17 @@ variable "db_machine_type" {
   type        = string
   # Use non-shared 1-vCPU VMs for more predictable perf-test results.
   default = "t2d-standard-1"
+}
+
+variable "db_server_count" {
+  description = "Number of private DB shard VMs."
+  type        = number
+  default     = 5
+
+  validation {
+    condition     = var.db_server_count > 0
+    error_message = "db_server_count must be greater than 0."
+  }
 }
 
 variable "observability_machine_type" {

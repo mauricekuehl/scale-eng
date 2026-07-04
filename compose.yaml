@@ -16,7 +16,7 @@ services:
     environment:
       <<: *otel-env
       BASE_URL: http://localhost:8080
-      DB_URL: http://db:9000
+      DB_URLS: http://db-1:9000,http://db-2:9000,http://db-3:9000,http://db-4:9000,http://db-5:9000
       OTEL_SERVICE_NAME: url-shortener-api
       # Overload protection (bulkhead + circuit breaker). See services/api/overload.py.
       DB_CONCURRENCY: "50"
@@ -26,18 +26,70 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - db
+      - db-1
+      - db-2
+      - db-3
+      - db-4
+      - db-5
       - otel-collector
 
-  db:
+  db-1:
     build:
       context: .
       dockerfile: services/db/Dockerfile
     environment:
       <<: *otel-env
-      OTEL_SERVICE_NAME: url-shortener-db
+      OTEL_SERVICE_NAME: url-shortener-db-1
     ports:
-      - "9000:9000"
+      - "9001:9000"
+    depends_on:
+      - otel-collector
+
+  db-2:
+    build:
+      context: .
+      dockerfile: services/db/Dockerfile
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: url-shortener-db-2
+    ports:
+      - "9002:9000"
+    depends_on:
+      - otel-collector
+
+  db-3:
+    build:
+      context: .
+      dockerfile: services/db/Dockerfile
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: url-shortener-db-3
+    ports:
+      - "9003:9000"
+    depends_on:
+      - otel-collector
+
+  db-4:
+    build:
+      context: .
+      dockerfile: services/db/Dockerfile
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: url-shortener-db-4
+    ports:
+      - "9004:9000"
+    depends_on:
+      - otel-collector
+
+  db-5:
+    build:
+      context: .
+      dockerfile: services/db/Dockerfile
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: url-shortener-db-5
+    ports:
+      - "9005:9000"
     depends_on:
       - otel-collector
 

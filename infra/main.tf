@@ -240,11 +240,13 @@ resource "google_compute_instance" "api" {
   }
 
   metadata_startup_script = templatefile("${path.module}/startup-api.sh.tftpl", {
-    artifact_host  = local.artifact_host
-    image_uri      = local.api_image
-    base_url       = "http://${google_compute_address.lb.address}"
-    db_url         = "http://${google_compute_instance.db.network_interface[0].network_ip}:9000"
-    otel_endpoint  = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
+    artifact_host = local.artifact_host
+    image_uri     = local.api_image
+    base_url      = "http://${google_compute_address.lb.address}"
+    db_urls = join(",", [
+      for db in google_compute_instance.db : "http://${db.network_interface[0].network_ip}:9000"
+    ])
+    otel_endpoint = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
     cache_capacity = var.cache_capacity
     # Split the DB's global concurrency budget across the deployed API nodes so
     # that api_server_count * db_concurrency stays within what the DB can serve.
@@ -265,7 +267,8 @@ resource "google_compute_instance" "api" {
 }
 
 resource "google_compute_instance" "db" {
-  name         = local.db_name
+  count        = var.db_server_count
+  name         = "${local.db_name}-${count.index + 1}"
   machine_type = var.db_machine_type
   zone         = var.zone
   tags         = ["url-shortener-db"]

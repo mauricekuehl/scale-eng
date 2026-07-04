@@ -21,7 +21,7 @@ docker run -d \
   --restart unless-stopped \
   -p 80:8080 \
   -e BASE_URL="${base_url}" \
-  -e DB_URL="${db_url}" \
+  -e DB_URLS="${db_urls}" \
   -e CACHE_CAPACITY="${cache_capacity}" \
   -e DB_CONCURRENCY="${db_concurrency}" \
   -e DB_ACQUIRE_TIMEOUT="${db_acquire_timeout}" \

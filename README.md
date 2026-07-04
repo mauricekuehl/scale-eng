@@ -5,13 +5,17 @@ Small URL shortener for the Scalability Engineering prototype.
 ## What Runs
 
 - `services/api`: FastAPI service on port `8080`
-- `services/db`: FastAPI in-memory store on port `9000`
+- `services/db`: FastAPI in-memory stores, run as five DB shards locally
 - Cloud deployment: one public Nginx load balancer VM, configurable private API
-  VM count, and one private DB VM
+  VM count, and configurable private DB shard VM count
 - OpenTelemetry Collector, Prometheus, and Grafana for metrics
 
 The API talks to the DB service over HTTP. The DB stores data in Python hash
 maps, so all URLs are lost when the DB container restarts.
+
+Note on standard sharding: when `DB_URLS` is configured with multiple comma-
+separated DB URLs, the API routes each short code to one DB shard using a stable
+hash. `DB_URL` remains supported for single-DB deployments.
 
 ## Setup
 
@@ -38,6 +42,7 @@ make local
 Endpoints:
 
 - API: `http://localhost:8080`
+- DB shards: `http://localhost:9001` through `http://localhost:9005`
 - Grafana: `http://localhost:3000`
 - Prometheus: `http://localhost:9090`
 
@@ -50,7 +55,8 @@ Defaults:
 - `ZONE`: `europe-west3-a`
 - `REPO_NAME`: `url-shortener`
 - `TAG`: output of `whoami`
-- `API_SERVER_COUNT`: `3`
+- `API_SERVER_COUNT`: `5`
+- `DB_SERVER_COUNT`: `5`
 
 Build, push, deploy, and wait:
 
@@ -206,6 +212,17 @@ export interval is `10000` ms.
 
 To update the Grafana dashboard, make changes in the Grafana UI, export the JSON,
 and replace `observability/grafana/dashboards/url-shortener-metrics.json`.
+
+# Testing Sharding 
+- run docker
+- creating urls ( e.g 
+curl -X POST http://localhost:8080/create \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com/a"}' )
+- call each shard with the value of the created short-url at the end (e.g. curl -i http://localhost:9001/7Dw8Ew42)
+- try with different localhost ports and if the url is not there then "404 Not Found" will pop up or else "200 OK" if it's there
+- test redirect via API with the value of your short-url at the end again 
+curl -i http://localhost:8080/7Dw8Ew42
 
 # Documentation
 
