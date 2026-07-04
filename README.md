@@ -207,7 +207,29 @@ export interval is `10000` ms.
 To update the Grafana dashboard, make changes in the Grafana UI, export the JSON,
 and replace `observability/grafana/dashboards/url-shortener-metrics.json`.
 
+# Documentation
+
+## Overload Protection
+
+Scaling the API tier out multiplies the load on the shared DB: `N` independent
+API nodes can each fan out to the same DB, so aggregate DB concurrency grows
+linearly with the node count. To keep scaling out from overloading the DB we
+guard every DB call with two self-implemented primitives in
+[`services/api/overload.py`](services/api/overload.py):
+
+- **Bulkhead** — caps concurrent DB calls *per node*. Terraform splits a global
+  DB budget across the deployed nodes (`db_concurrency = ceil(db_total_concurrency
+  / api_server_count)`), so `api_server_count * db_concurrency` stays within what
+  the DB can serve regardless of how many nodes you deploy. When no slot frees
+  up within `DB_ACQUIRE_TIMEOUT` the call is shed, not queued.
+- **Circuit breaker** — after `BREAKER_THRESHOLD` consecutive DB failures it
+  opens and fails fast for `BREAKER_COOLDOWN` seconds (then probes once), so a
+  slow or dead DB cannot block every API worker. One breaker per downstream
+  (later: one per shard).
+
 ## Functional Requirements
+
+These are just some functional requirements we came up with before we started with the development.
 
 ### Create Short URL
 

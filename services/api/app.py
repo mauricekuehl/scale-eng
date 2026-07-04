@@ -1,7 +1,7 @@
 import os
 import secrets
 import string
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import cast
 from urllib.parse import urlparse
@@ -10,8 +10,9 @@ import httpx
 from cache import LRUCache
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from instrumentation import instrument_cache
+from instrumentation import instrument_cache, instrument_overload
 from opentelemetry import metrics
+from overload import Bulkhead, CircuitBreaker, OverloadError
 
 BASE_URL = os.environ["BASE_URL"].rstrip("/")
 DB_URL = os.environ["DB_URL"].rstrip("/")
@@ -22,9 +23,21 @@ DB_TIMEOUT = httpx.Timeout(connect=0.5, read=2.0, write=2.0, pool=0.5)
 DB_LIMITS = httpx.Limits(max_connections=100, max_keepalive_connections=20)
 CACHE_CAPACITY = int(os.environ.get("CACHE_CAPACITY", "1000"))
 
+# Overload protection
+DB_CONCURRENCY = int(os.environ.get("DB_CONCURRENCY", "50"))
+DB_ACQUIRE_TIMEOUT = float(os.environ.get("DB_ACQUIRE_TIMEOUT", "0.05"))
+BREAKER_THRESHOLD = int(os.environ.get("BREAKER_THRESHOLD", "5"))
+BREAKER_COOLDOWN = float(os.environ.get("BREAKER_COOLDOWN", "2.0"))
+RETRY_AFTER = {"Retry-After": "1"}
+
+db_bulkhead = Bulkhead(DB_CONCURRENCY, DB_ACQUIRE_TIMEOUT)
+db_breaker = CircuitBreaker(BREAKER_THRESHOLD, BREAKER_COOLDOWN)
+
 cache = LRUCache(CACHE_CAPACITY)
 # Expose the cache's cumulative hit/miss counters as OTLP metrics
-instrument_cache(metrics.get_meter("url-shortener-api"), cache)
+meter = metrics.get_meter("url-shortener-api")
+instrument_cache(meter, cache)
+instrument_overload(meter, db_bulkhead, db_breaker)
 
 
 @asynccontextmanager
@@ -80,18 +93,31 @@ def raise_for_db_status(response: httpx.Response) -> None:
         raise HTTPException(status_code=502, detail="db service error") from exc
 
 
-async def db_get(client: httpx.AsyncClient, code: str) -> httpx.Response:
+async def db_request(send: Callable[[], Awaitable[httpx.Response]]) -> httpx.Response:
+    """
+    Run one DB call behind the overload guards.
+    """
+    if not db_breaker.allow():
+        raise HTTPException(status_code=503, detail="db unavailable", headers=RETRY_AFTER)
     try:
-        return await client.get(f"{DB_URL}/{code}")
+        response = await db_bulkhead.run(send)
+    except OverloadError as exc:
+        raise HTTPException(status_code=503, detail="db busy", headers=RETRY_AFTER) from exc
     except httpx.RequestError as exc:
-        raise HTTPException(status_code=503, detail="db service unavailable") from exc
+        db_breaker.record_failure()
+        raise HTTPException(
+            status_code=503, detail="db service unavailable", headers=RETRY_AFTER
+        ) from exc
+    db_breaker.record_success()
+    return response
+
+
+async def db_get(client: httpx.AsyncClient, code: str) -> httpx.Response:
+    return await db_request(lambda: client.get(f"{DB_URL}/{code}"))
 
 
 async def db_put(client: httpx.AsyncClient, code: str, original_url: str) -> httpx.Response:
-    try:
-        return await client.put(f"{DB_URL}/{code}", json={"url": original_url})
-    except httpx.RequestError as exc:
-        raise HTTPException(status_code=503, detail="db service unavailable") from exc
+    return await db_request(lambda: client.put(f"{DB_URL}/{code}", json={"url": original_url}))
 
 
 # Only for testing purposes

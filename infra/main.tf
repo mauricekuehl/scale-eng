@@ -246,6 +246,12 @@ resource "google_compute_instance" "api" {
     db_url         = "http://${google_compute_instance.db.network_interface[0].network_ip}:9000"
     otel_endpoint  = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
     cache_capacity = var.cache_capacity
+    # Split the DB's global concurrency budget across the deployed API nodes so
+    # that api_server_count * db_concurrency stays within what the DB can serve.
+    db_concurrency     = ceil(var.db_total_concurrency / var.api_server_count)
+    db_acquire_timeout = var.db_acquire_timeout
+    breaker_threshold  = var.breaker_threshold
+    breaker_cooldown   = var.breaker_cooldown
   })
 
   service_account {

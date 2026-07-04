@@ -51,6 +51,30 @@ variable "cache_capacity" {
   default     = 1000
 }
 
+variable "db_total_concurrency" {
+  description = "Global concurrency budget the DB can serve. Split evenly across API nodes (per-node bulkhead = ceil(this / api_server_count)) so scaling out cannot overload the DB."
+  type        = number
+  default     = 150
+}
+
+variable "db_acquire_timeout" {
+  description = "Seconds an API node waits for a free DB-call slot before shedding the request (fast-fail)."
+  type        = number
+  default     = 0.05
+}
+
+variable "breaker_threshold" {
+  description = "Consecutive DB failures before the per-node circuit breaker opens."
+  type        = number
+  default     = 5
+}
+
+variable "breaker_cooldown" {
+  description = "Seconds the circuit breaker stays open before probing the DB again."
+  type        = number
+  default     = 2.0
+}
+
 variable "db_machine_type" {
   description = "Compute Engine machine type for the private DB VM."
   type        = string
