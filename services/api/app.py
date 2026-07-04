@@ -115,27 +115,6 @@ async def db_put(client: httpx.AsyncClient, code: str, original_url: str) -> htt
         raise HTTPException(status_code=503, detail="db service unavailable") from exc
 
 
-async def db_get_code_by_url(
-    client: httpx.AsyncClient, db_url: str, original_url: str
-) -> httpx.Response:
-    try:
-        return await client.get(f"{db_url}/by-url", params={"url": original_url})
-    except httpx.RequestError as exc:
-        raise HTTPException(status_code=503, detail="db service unavailable") from exc
-
-
-async def find_existing_code(client: httpx.AsyncClient, original_url: str) -> str | None:
-    responses = await asyncio.gather(
-        *(db_get_code_by_url(client, db_url, original_url) for db_url in DB_URLS)
-    )
-    for response in responses:
-        if response.status_code == 404:
-            continue
-        raise_for_db_status(response)
-        return cast(str, response.json()["code"])
-    return None
-
-
 # Only for testing purposes
 @app.delete("/")
 async def delete_all(request: Request) -> dict[str, int]:
@@ -157,9 +136,6 @@ async def delete_all(request: Request) -> dict[str, int]:
 async def create(request: Request) -> dict[str, str]:
     original_url = url_from(await json_body(request))
     client = db_client(request)
-    existing_code = await find_existing_code(client, original_url)
-    if existing_code is not None:
-        return {"shortUrl": f"{BASE_URL}/{existing_code}"}
 
     for _ in range(MAX_CREATE_ATTEMPTS):
         code = generate_code()

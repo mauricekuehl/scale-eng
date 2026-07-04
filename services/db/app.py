@@ -29,14 +29,6 @@ def url_from(body: dict[str, object]) -> str:
     return value
 
 
-@app.get("/by-url")
-async def get_code_by_url(url: str) -> dict[str, str]:
-    try:
-        return {"code": url_codes[url]}
-    except KeyError:
-        raise HTTPException(status_code=404) from None
-
-
 @app.get("/{code}")
 async def get_url(code: str) -> dict[str, str]:
     try:
