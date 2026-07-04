@@ -1,17 +1,20 @@
 """
-Self-implemented overload protection.
+Overload protection.
 
-* ``Bulkhead`` -- bounds the concurrency a single API node imposes on a
-  downstream dependency (the DB, later a shard). With ``N`` nodes each capped
-  at ``limit`` the downstream sees at most ``N * limit`` in-flight calls, so
-  scaling the API tier out cannot overload the shared component.
-* ``CircuitBreaker`` -- stops hammering a downstream that is already failing so
-  it can recover, failing fast in the meantime. One instance per downstream
-  (later: one per shard).
+* ``Bulkhead`` -- bounds the concurrency a single API node imposes on one
+  downstream shard. With ``N`` nodes each capped at ``limit`` a shard sees at
+  most ``N * limit`` in-flight calls, so scaling the API tier out cannot
+  overload it.
+* ``CircuitBreaker`` -- stops hammering a shard that is already failing so it
+  can recover, failing fast in the meantime.
+* ``ShardGuards`` -- holds one ``Bulkhead`` and one ``CircuitBreaker`` *per
+  shard* and orchestrates them. This isolation is the point: a slow or dead
+  shard can only exhaust its own slots and open its own breaker, so healthy
+  shards keep serving.
 
-Both guards reject fast (fail-fast) instead of queuing unbounded work; the
-caller turns a rejection into an HTTP 503 + ``Retry-After`` (backpressure)
-rather than letting load cascade.
+Every guard rejects fast (fail-fast) instead of queuing unbounded work; the
+caller turns a rejection (``OverloadError``) into an HTTP 503 + ``Retry-After``
+(backpressure) rather than letting load cascade.
 """
 
 import asyncio
@@ -20,6 +23,7 @@ from collections.abc import Awaitable, Callable, Iterable
 from typing import TypeVar
 
 T = TypeVar("T")
+Shard = str  # a shard is identified by its base URL
 
 
 class OverloadError(Exception):
@@ -82,3 +86,40 @@ class CircuitBreaker:
     @property
     def is_open(self) -> bool:
         return self.failures >= self.failure_threshold
+
+
+class ShardGuards:
+    """One bulkhead + one circuit breaker per shard, plus the orchestration."""
+
+    def __init__(
+        self,
+        shards: Iterable[Shard],
+        *,
+        limit: int,
+        acquire_timeout: float,
+        failure_threshold: int,
+        cooldown: float,
+    ) -> None:
+        self.shards: tuple[Shard, ...] = tuple(shards)
+        self.bulkheads = {s: Bulkhead(limit, acquire_timeout) for s in self.shards}
+        self.breakers = {s: CircuitBreaker(failure_threshold, cooldown) for s in self.shards}
+
+    async def run(self, shard: Shard, work: Callable[[], Awaitable[T]]) -> T:
+        """
+        Run one call to ``shard`` behind its own guards. Raises ``OverloadError``
+        if the shard's breaker is open or its bulkhead is full (the caller turns
+        that into a 503). Only genuine downstream failures trip the breaker --
+        a bulkhead rejection is our own throttle, not a shard fault.
+        """
+        breaker = self.breakers[shard]
+        if not breaker.allow():
+            raise OverloadError("circuit open")
+        try:
+            result = await self.bulkheads[shard].run(work)
+        except OverloadError:
+            raise
+        except Exception:
+            breaker.record_failure()
+            raise
+        breaker.record_success()
+        return result

@@ -51,26 +51,26 @@ variable "cache_capacity" {
   default     = 1000
 }
 
-variable "db_total_concurrency" {
-  description = "Global concurrency budget the DB can serve. Split evenly across API nodes (per-node bulkhead = ceil(this / api_server_count)) so scaling out cannot overload the DB."
+variable "db_shard_capacity" {
+  description = "Concurrency a single DB shard can serve. Split evenly across API nodes into the per-node, per-shard bulkhead limit DB_SHARD_CONCURRENCY = ceil(this / api_server_count), so scaling the API tier out cannot overload any shard."
   type        = number
   default     = 150
 }
 
-variable "db_acquire_timeout" {
-  description = "Seconds an API node waits for a free DB-call slot before shedding the request (fast-fail)."
+variable "db_shard_acquire_timeout" {
+  description = "Seconds an API node waits for a free per-shard slot before shedding the request (fast-fail)."
   type        = number
   default     = 0.05
 }
 
 variable "breaker_threshold" {
-  description = "Consecutive DB failures before the per-node circuit breaker opens."
+  description = "Consecutive failures to one shard before that shard's per-node circuit breaker opens."
   type        = number
   default     = 5
 }
 
 variable "breaker_cooldown" {
-  description = "Seconds the circuit breaker stays open before probing the DB again."
+  description = "Seconds a shard's circuit breaker stays open before probing it again."
   type        = number
   default     = 2.0
 }

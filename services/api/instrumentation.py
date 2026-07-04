@@ -1,9 +1,8 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from cache import LRUCache
-from collections.abc import Callable, Iterable
-from overload import Bulkhead, CircuitBreaker
 from opentelemetry.metrics import CallbackOptions, Meter, Observation
+from overload import ShardGuards
 
 
 def instrument_cache(meter: Meter, cache: LRUCache) -> None:
@@ -28,32 +27,36 @@ def instrument_cache(meter: Meter, cache: LRUCache) -> None:
         description="Cumulative read-cache misses.",
     )
 
-def instrument_overload(meter: Meter, bulkhead: Bulkhead, breaker: CircuitBreaker) -> None:
-    """Expose the guards' counters as OTLP metrics (mirrors instrument_cache)."""
 
-    def observe(value_fn: Callable[[], int | float]) -> Callable[..., Iterable[Observation]]:
+def instrument_overload(meter: Meter, guards: ShardGuards) -> None:
+    """Expose each shard's guard counters as per-shard OTLP metrics (attribute `shard`)."""
+
+    def per_shard(
+        value_fn: Callable[[str], int | float],
+    ) -> Callable[..., Iterable[Observation]]:
         def callback(options: CallbackOptions) -> Iterable[Observation]:
-            yield Observation(value_fn())
+            for shard in guards.shards:
+                yield Observation(value_fn(shard), {"shard": shard})
 
         return callback
 
     meter.create_observable_counter(
         "overload.bulkhead.rejected",
-        callbacks=[observe(lambda: bulkhead.rejected)],
-        description="Cumulative DB calls rejected because the bulkhead was full.",
+        callbacks=[per_shard(lambda s: guards.bulkheads[s].rejected)],
+        description="Cumulative DB calls rejected because a shard's bulkhead was full.",
     )
     meter.create_observable_gauge(
         "overload.bulkhead.in_use",
-        callbacks=[observe(lambda: bulkhead.in_use)],
-        description="DB-call slots currently in use on this node.",
+        callbacks=[per_shard(lambda s: guards.bulkheads[s].in_use)],
+        description="DB-call slots currently in use per shard on this node.",
     )
     meter.create_observable_counter(
         "overload.circuit.short_circuited",
-        callbacks=[observe(lambda: breaker.short_circuited)],
-        description="Cumulative DB calls rejected while the circuit was open.",
+        callbacks=[per_shard(lambda s: guards.breakers[s].short_circuited)],
+        description="Cumulative DB calls rejected while a shard's circuit was open.",
     )
     meter.create_observable_gauge(
         "overload.circuit.open",
-        callbacks=[observe(lambda: int(breaker.is_open))],
-        description="1 while the DB circuit breaker is open, else 0.",
+        callbacks=[per_shard(lambda s: int(guards.breakers[s].is_open))],
+        description="1 while a shard's circuit breaker is open, else 0.",
     )

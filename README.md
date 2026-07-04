@@ -228,21 +228,28 @@ curl -i http://localhost:8080/7Dw8Ew42
 
 ## Overload Protection
 
-Scaling the API tier out multiplies the load on the shared DB: `N` independent
-API nodes can each fan out to the same DB, so aggregate DB concurrency grows
-linearly with the node count. To keep scaling out from overloading the DB we
-guard every DB call with two self-implemented primitives in
-[`services/api/overload.py`](services/api/overload.py):
+Scaling the API tier out multiplies the load on each DB shard: `N` independent
+API nodes can each fan out to the same shard, so a shard's aggregate concurrency
+grows linearly with the node count. The DB tier is sharded (URLs are routed by a
+hash of the code), so the guards are held **per shard** — a slow or dead shard
+must not affect the healthy ones. Every DB call is guarded by self-implemented
+primitives in [`services/api/overload.py`](services/api/overload.py):
 
-- **Bulkhead** — caps concurrent DB calls *per node*. Terraform splits a global
-  DB budget across the deployed nodes (`db_concurrency = ceil(db_total_concurrency
-  / api_server_count)`), so `api_server_count * db_concurrency` stays within what
-  the DB can serve regardless of how many nodes you deploy. When no slot frees
-  up within `DB_ACQUIRE_TIMEOUT` the call is shed, not queued.
-- **Circuit breaker** — after `BREAKER_THRESHOLD` consecutive DB failures it
-  opens and fails fast for `BREAKER_COOLDOWN` seconds (then probes once), so a
-  slow or dead DB cannot block every API worker. One breaker per downstream
-  (later: one per shard).
+- **Bulkhead (per shard)** — caps concurrent calls a node makes to *one shard*
+  (`DB_SHARD_CONCURRENCY`). Terraform splits each shard's capacity across the
+  deployed nodes (`DB_SHARD_CONCURRENCY = ceil(db_shard_capacity /
+  api_server_count)`), so `api_server_count * DB_SHARD_CONCURRENCY` stays within
+  what one shard can serve, regardless of node count. When no slot frees up
+  within `DB_SHARD_ACQUIRE_TIMEOUT` the call is shed, not queued. Because each
+  shard has its own bulkhead, a slow shard can only exhaust its own slots, never
+  those of healthy shards.
+- **Circuit breaker (per shard)** — after `BREAKER_THRESHOLD` consecutive
+  failures to a shard it opens and fails fast for `BREAKER_COOLDOWN` seconds
+  (then probes once), so a slow or dead shard cannot block API workers on calls
+  to it — and only *that* shard is short-circuited.
+
+The shared httpx connection pool is sized to `len(shards) * DB_SHARD_CONCURRENCY`
+so a stalled shard cannot starve the pool and reintroduce cross-shard coupling.
 
 ## Functional Requirements
 
