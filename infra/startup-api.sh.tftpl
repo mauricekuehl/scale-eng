@@ -21,7 +21,7 @@ docker run -d \
   --restart unless-stopped \
   -p 80:8080 \
   -e BASE_URL="${base_url}" \
-  -e DB_URL="${db_url}" \
+  -e DB_URLS="${db_urls}" \
   -e CACHE_CAPACITY="${cache_capacity}" \
   -e OTEL_SERVICE_NAME=url-shortener-api \
   -e OTEL_EXPORTER_OTLP_ENDPOINT="${otel_endpoint}" \

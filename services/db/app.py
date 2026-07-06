@@ -6,7 +6,6 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI()
 urls: dict[str, str] = {}
-url_codes: dict[str, str] = {}
 
 
 async def json_body(request: Request) -> dict[str, object]:
@@ -42,7 +41,6 @@ async def get_url(code: str) -> dict[str, str]:
 async def delete_all() -> dict[str, int]:
     count = len(urls)
     urls.clear()
-    url_codes.clear()
     gc.collect()
     return {"deleted": count}
 
@@ -50,12 +48,8 @@ async def delete_all() -> dict[str, int]:
 @app.put("/{code}")
 async def put_url(code: str, request: Request) -> JSONResponse:
     original_url = url_from(await json_body(request))
-    existing_code = url_codes.get(original_url)
-    if existing_code is not None:
-        return JSONResponse({"code": existing_code})
     if code in urls:
         raise HTTPException(status_code=409, detail="exists")
 
     urls[code] = original_url
-    url_codes[original_url] = code
     return JSONResponse({"code": code}, status_code=201)

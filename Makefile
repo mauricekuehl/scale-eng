@@ -3,6 +3,7 @@ REGION ?= europe-west1
 ZONE ?= europe-west1-b
 REPO_NAME ?= url-shortener
 API_SERVER_COUNT ?= 5
+DB_SERVER_COUNT ?= 5
 TF_DIR ?= infra
 TAG := $(shell whoami)
 TF_AUTH := GOOGLE_OAUTH_ACCESS_TOKEN="$$(gcloud auth print-access-token)"
@@ -41,6 +42,7 @@ deploy:
 		-var="zone=$(ZONE)" \
 		-var="repo_name=$(REPO_NAME)" \
 		-var="api_server_count=$(API_SERVER_COUNT)" \
+		-var="db_server_count=$(DB_SERVER_COUNT)" \
 		-var="image_tag=$(TAG)"
 
 undeploy:
@@ -50,6 +52,7 @@ undeploy:
 		-var="zone=$(ZONE)" \
 		-var="repo_name=$(REPO_NAME)" \
 		-var="api_server_count=$(API_SERVER_COUNT)" \
+		-var="db_server_count=$(DB_SERVER_COUNT)" \
 		-var="image_tag=$(TAG)"
 
 build-api:
@@ -94,9 +97,11 @@ restart-api:
 	done
 
 restart-db:
-	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw db_vm_name)" \
-		--project=$(PROJECT_ID) \
-		--zone=$(ZONE)
+	@terraform -chdir=$(TF_DIR) output -json db_vm_names | $(PYTHON) -c 'import json,sys; print("\n".join(json.load(sys.stdin)))' | while read -r vm; do \
+		gcloud compute instances reset "$$vm" \
+			--project=$(PROJECT_ID) \
+			--zone=$(ZONE); \
+	done
 
 restart-observability:
 	gcloud compute instances reset "$$(terraform -chdir=$(TF_DIR) output -raw observability_vm_name)" \

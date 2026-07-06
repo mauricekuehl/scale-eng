@@ -42,7 +42,7 @@ def test_invalid_url_returns_400() -> None:
     assert response.status == 400, f"expected 400 for invalid URL, got {response.status}"
 
 
-def test_create_reuses_url_and_redirects() -> None:
+def test_create_returns_new_codes_for_same_url_and_redirects() -> None:
     created = request("POST", "/create", {"url": "https://example.com/some/long/url"})
     assert created.status == 201, f"expected 201 for create, got {created.status}"
     short_url = json.load(created)["shortUrl"]
@@ -51,8 +51,17 @@ def test_create_reuses_url_and_redirects() -> None:
 
     repeated = request("POST", "/create", {"url": "https://example.com/some/long/url"})
     assert repeated.status == 201, f"expected 201 for repeated create, got {repeated.status}"
-    assert json.load(repeated)["shortUrl"] == short_url, "expected repeated URL to reuse code"
+    repeated_short_url = json.load(repeated)["shortUrl"]
+    repeated_code = repeated_short_url.rsplit("/", 1)[-1]
+    assert len(repeated_code) == 8, f"expected 8-character code, got {repeated_code}"
+    assert repeated_short_url != short_url, "expected repeated URL to get a new code"
 
     redirect = request("GET", f"/{code}")
     assert redirect.status == 302, f"expected 302 for short URL, got {redirect.status}"
     assert redirect.headers["Location"] == "https://example.com/some/long/url"
+
+    repeated_redirect = request("GET", f"/{repeated_code}")
+    assert repeated_redirect.status == 302, (
+        f"expected 302 for repeated short URL, got {repeated_redirect.status}"
+    )
+    assert repeated_redirect.headers["Location"] == "https://example.com/some/long/url"
