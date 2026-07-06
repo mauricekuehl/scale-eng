@@ -213,7 +213,7 @@ export interval is `10000` ms.
 To update the Grafana dashboard, make changes in the Grafana UI, export the JSON,
 and replace `observability/grafana/dashboards/url-shortener-metrics.json`.
 
-# Testing Sharding 
+## Testing Sharding 
 - run docker
 - creating urls ( e.g 
 curl -X POST http://localhost:8080/create \
