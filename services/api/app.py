@@ -62,6 +62,20 @@ instrument_cache(meter, cache)
 instrument_overload(meter, shard_guards)
 
 
+def configured_db_urls() -> tuple[str, ...]:
+    raw_urls = os.environ.get("DB_URLS") or os.environ.get("DB_URL")
+    if raw_urls is None:
+        raise RuntimeError("DB_URLS or DB_URL is required")
+
+    urls = tuple(url.strip().rstrip("/") for url in raw_urls.split(",") if url.strip())
+    if not urls:
+        raise RuntimeError("DB_URLS or DB_URL must contain at least one URL")
+    return urls
+
+
+DB_URLS = configured_db_urls()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.db_client = httpx.AsyncClient(
