@@ -23,6 +23,10 @@ docker run -d \
   -e BASE_URL="${base_url}" \
   -e DB_URLS="${db_urls}" \
   -e CACHE_CAPACITY="${cache_capacity}" \
+  -e DB_SHARD_CONCURRENCY="${db_shard_concurrency}" \
+  -e DB_SHARD_ACQUIRE_TIMEOUT="${db_shard_acquire_timeout}" \
+  -e BREAKER_THRESHOLD="${breaker_threshold}" \
+  -e BREAKER_COOLDOWN="${breaker_cooldown}" \
   -e OTEL_SERVICE_NAME=url-shortener-api \
   -e OTEL_EXPORTER_OTLP_ENDPOINT="${otel_endpoint}" \
   -e OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \

@@ -18,6 +18,12 @@ services:
       BASE_URL: http://localhost:8080
       DB_URLS: http://db-1:9000,http://db-2:9000,http://db-3:9000,http://db-4:9000,http://db-5:9000
       OTEL_SERVICE_NAME: url-shortener-api
+      # Overload protection: per-shard bulkhead + circuit breaker. See
+      # services/api/overload.py. DB_SHARD_CONCURRENCY is the per-node budget per shard.
+      DB_SHARD_CONCURRENCY: "50"
+      DB_SHARD_ACQUIRE_TIMEOUT: "0.05"
+      BREAKER_THRESHOLD: "5"
+      BREAKER_COOLDOWN: "2.0"
     ports:
       - "8080:8080"
     depends_on:
