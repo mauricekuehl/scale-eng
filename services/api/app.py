@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import os
 import secrets
 import string
@@ -15,6 +14,7 @@ from fastapi.responses import RedirectResponse
 from instrumentation import instrument_cache, instrument_overload
 from opentelemetry import metrics
 from overload import OverloadError, ShardGuards
+from sharding import replica_shards_for_key
 
 BASE_URL = os.environ["BASE_URL"].rstrip("/")
 CHARS = string.ascii_letters + string.digits
@@ -23,6 +23,9 @@ MAX_CREATE_ATTEMPTS = 10
 CACHE_CAPACITY = int(os.environ.get("CACHE_CAPACITY", "1000"))
 DB_SHARD_CONCURRENCY = int(os.environ.get("DB_SHARD_CONCURRENCY", "50"))
 DB_SHARD_ACQUIRE_TIMEOUT = float(os.environ.get("DB_SHARD_ACQUIRE_TIMEOUT", "0.05"))
+DB_SHARD_REPLICATION_FACTOR = max(
+    1, int(os.environ.get("DB_SHARD_REPLICATION_FACTOR", "2"))
+)
 BREAKER_THRESHOLD = int(os.environ.get("BREAKER_THRESHOLD", "5"))
 BREAKER_COOLDOWN = float(os.environ.get("BREAKER_COOLDOWN", "2.0"))
 RETRY_AFTER = {"Retry-After": "1"}
@@ -56,24 +59,10 @@ shard_guards = ShardGuards(
 )
 
 cache = LRUCache(CACHE_CAPACITY)
-# Expose the cache's cumulative hit/miss counters as OTLP metrics
+# Expose the cache's cumulative hit/miss counters as OTLP metrics.
 meter = metrics.get_meter("url-shortener-api")
 instrument_cache(meter, cache)
 instrument_overload(meter, shard_guards)
-
-
-def configured_db_urls() -> tuple[str, ...]:
-    raw_urls = os.environ.get("DB_URLS") or os.environ.get("DB_URL")
-    if raw_urls is None:
-        raise RuntimeError("DB_URLS or DB_URL is required")
-
-    urls = tuple(url.strip().rstrip("/") for url in raw_urls.split(",") if url.strip())
-    if not urls:
-        raise RuntimeError("DB_URLS or DB_URL must contain at least one URL")
-    return urls
-
-
-DB_URLS = configured_db_urls()
 
 
 @asynccontextmanager
@@ -122,10 +111,8 @@ def db_client(request: Request) -> httpx.AsyncClient:
     return cast(httpx.AsyncClient, request.app.state.db_client)
 
 
-def shard_url_for_key(key: str) -> str:
-    digest = hashlib.sha256(key.encode()).digest()
-    shard_index = int.from_bytes(digest[:8], "big") % len(DB_URLS)
-    return DB_URLS[shard_index]
+def shards_for_key(key: str) -> tuple[str, ...]:
+    return replica_shards_for_key(key, DB_URLS, DB_SHARD_REPLICATION_FACTOR)
 
 
 def raise_for_db_status(response: httpx.Response) -> None:
@@ -146,16 +133,64 @@ async def db_request(shard: str, send: Callable[[], Awaitable[httpx.Response]]) 
         ) from exc
 
 
-async def db_get(client: httpx.AsyncClient, code: str) -> httpx.Response:
-    shard = shard_url_for_key(code)
-    return await db_request(shard, lambda: client.get(f"{shard}/{code}"))
+async def db_delete_replica(client: httpx.AsyncClient, shard: str, code: str) -> None:
+    try:
+        await db_request(shard, lambda: client.delete(f"{shard}/{code}"))
+    except HTTPException:
+        return
 
 
-async def db_put(client: httpx.AsyncClient, code: str, original_url: str) -> httpx.Response:
-    shard = shard_url_for_key(code)
-    return await db_request(
-        shard, lambda: client.put(f"{shard}/{code}", json={"url": original_url})
+async def db_put_replicated(client: httpx.AsyncClient, code: str, original_url: str) -> bool:
+    shards = shards_for_key(code)
+    responses = await asyncio.gather(
+        *(
+            db_request(
+                shard,
+                lambda shard=shard: client.put(f"{shard}/{code}", json={"url": original_url}),
+            )
+            for shard in shards
+        ),
+        return_exceptions=True,
     )
+
+    successful_shards = [
+        shard
+        for shard, response in zip(shards, responses, strict=True)
+        if isinstance(response, httpx.Response) and response.status_code == 201
+    ]
+    has_conflict = any(
+        isinstance(response, httpx.Response) and response.status_code == 409
+        for response in responses
+    )
+    if has_conflict:
+        await asyncio.gather(
+            *(db_delete_replica(client, shard, code) for shard in successful_shards),
+            return_exceptions=True,
+        )
+        return False
+
+    return bool(successful_shards)
+
+
+async def db_get(client: httpx.AsyncClient, code: str) -> httpx.Response:
+    shards = shards_for_key(code)
+    had_error = False
+
+    for shard in shards:
+        try:
+            response = await db_request(shard, lambda shard=shard: client.get(f"{shard}/{code}"))
+        except HTTPException:
+            had_error = True
+            continue
+
+        if response.status_code == 200:
+            return response
+        if response.status_code != 404:
+            had_error = True
+
+    if had_error:
+        raise HTTPException(status_code=503, detail="db replicas unavailable", headers=RETRY_AFTER)
+    raise HTTPException(status_code=404)
 
 
 # Only for testing purposes
@@ -182,11 +217,8 @@ async def create(request: Request) -> dict[str, str]:
 
     for _ in range(MAX_CREATE_ATTEMPTS):
         code = generate_code()
-        response = await db_put(client, code, original_url)
-        if response.status_code == 409:
-            continue
-        raise_for_db_status(response)
-        return {"shortUrl": f"{BASE_URL}/{response.json()['code']}"}
+        if await db_put_replicated(client, code, original_url):
+            return {"shortUrl": f"{BASE_URL}/{code}"}
 
     raise HTTPException(status_code=503, detail="could not allocate short code")
 
@@ -201,10 +233,6 @@ async def redirect(code: str, request: Request) -> RedirectResponse:
         return RedirectResponse(cached_url, status_code=302)
 
     response = await db_get(db_client(request), code)
-    if response.status_code == 404:
-        raise HTTPException(status_code=404)
-    raise_for_db_status(response)
-
     url = response.json()["url"]
     cache.put(code, url)
     return RedirectResponse(url, status_code=302)

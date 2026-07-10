@@ -36,6 +36,15 @@ async def get_url(code: str) -> dict[str, str]:
         raise HTTPException(status_code=404) from None
 
 
+@app.delete("/{code}")
+async def delete_url(code: str) -> dict[str, int]:
+    try:
+        del urls[code]
+    except KeyError:
+        raise HTTPException(status_code=404) from None
+    return {"deleted": 1}
+
+
 # Only for testing purposes
 @app.delete("/")
 async def delete_all() -> dict[str, int]:

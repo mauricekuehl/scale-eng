@@ -23,6 +23,7 @@ docker run -d \
   -e BASE_URL="${base_url}" \
   -e DB_URLS="${db_urls}" \
   -e CACHE_CAPACITY="${cache_capacity}" \
+  -e DB_SHARD_REPLICATION_FACTOR="${db_shard_replication_factor}" \
   -e DB_SHARD_CONCURRENCY="${db_shard_concurrency}" \
   -e DB_SHARD_ACQUIRE_TIMEOUT="${db_shard_acquire_timeout}" \
   -e BREAKER_THRESHOLD="${breaker_threshold}" \

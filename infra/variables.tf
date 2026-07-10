@@ -57,6 +57,12 @@ variable "db_shard_capacity" {
   default     = 150
 }
 
+variable "db_shard_replication_factor" {
+  description = "Number of DB shards each short code is replicated to for shuffle sharding."
+  type        = number
+  default     = 2
+}
+
 variable "db_shard_acquire_timeout" {
   description = "Seconds an API node waits for a free per-shard slot before shedding the request (fast-fail)."
   type        = number
