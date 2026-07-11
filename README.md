@@ -374,6 +374,11 @@ linearly scaling system. The main limitations we are aware of:
   only protects against a single shard being temporarily unavailable, not against
   losing the whole tier or a permanent shard failure. A production system would
   need persistence and real replication.
+- **Resharding is not handled.** The number of shards is fixed at deployment
+  time. Changing it would remap codes to different shards under rendezvous
+  hashing and make part of the existing data unreachable, so the DB tier cannot
+  be resized live without a migration step.
+- **Increased writes per create request.** With shuffle sharding, each create request       results in a higher number of writes due to the `DB_SHARD_REPLICATION_FACTOR`.
 - **The load balancer is a single point of failure.** A single nginx instance
   fronts all API nodes. It can itself become a bottleneck or take the whole
   system down if it fails; a highly available setup would need multiple LBs.
@@ -381,10 +386,6 @@ linearly scaling system. The main limitations we are aware of:
   reduce DB load only when the access pattern is skewed enough to produce cache
   hits. For a uniform read distribution or a write-heavy workload the DB tier
   remains the limiting factor.
-- **Resharding is not handled.** The number of shards is fixed at deployment
-  time. Changing it would remap codes to different shards under rendezvous
-  hashing and make part of the existing data unreachable, so the DB tier cannot
-  be resized live without a migration step.
 
 # Planning
 
