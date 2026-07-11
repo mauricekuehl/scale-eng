@@ -270,7 +270,7 @@ See the [code](infra/startup-lb.sh.tftpl) for details.
 
 With the now higher number of API nodes, the bottleneck shifted towards the DB node:
 
-**Results of Read-Only Breakpoint Test** 
+**Results of Read-Only Breakpoint Test (5 API-Nodes)** 
 ![Measurement](docs/measurement_after_LB.png)
 ![API Stats](docs/API_measurement_after_LB.jpeg)
 ![DB Stats](docs/DB_measurement_after_LB.png)
@@ -286,20 +286,30 @@ Because the data stored in a URL shortener is immutable, we did not have to worr
 
 See the [code](services/api/cache.py) for details.
 
-This worked very well and allowed us to handle significantly more requests per second:
+This worked very well and allowed us to handle significantly more requests per seconds for the hotspot access pattern:
 
-**Results of Read-Only Breakpoint Test (Hotspot-Distribution)** 
+**Results of Read-Only Breakpoint Test (Hotspot-Distribution, 5 API-Nodes)** 
 ![Measurement](docs/measurement_cache_hotspot.png)
+![API Stats](docs/API_measurement_cache_hotspot.png)
+![DB Stats](docs/DB_measurement_cache_hotspot.png)
+
+However, caches only help with read requests, and only when the access pattern is somewhat skewed so that many cache hits are possible. For a uniform access pattern the throughput was still limited by the DB-Node:
+
+**Results of Read-Only Breakpoint Test (Uniform-Distribution, 5 API-Nodes)** 
+![Measurement](docs/measurement_cache_uniform.png)
+![API Stats](docs/API_measurement_cache_uniform.png)
+![DB Stats](docs/DB_measurement_cache_uniform.png)
 
 
-However, caches only help with read requests, and only when the access pattern is somewhat skewed so that many cache hits are possible. We therefore picked a second strategy to further relieve the DB bottleneck.
+We therefore picked a second strategy to further relieve the DB bottleneck.
 
 ### Strategy 2: (Shuffle) Sharding
 
-As a second strategy we implemented shuffle sharding. Each DB node represents one shard that stores a subset of the data. We use hash-based sharding to distribute the data as evenly as possible. On top of that we apply shuffle sharding, so every item is placed on more than one shard, which keeps all data accessible even if a single shard fails. The replica set for each code is determined deterministically using rendezvous hashing.
+As a second strategy we implemented shuffle sharding. Each DB node represents one shard that stores a subset of the data. We use hash-based sharding to distribute the data as evenly as possible. On top of that we apply shuffle sharding, so every item is placed on more than one shard, which keeps all data accessible even if a single shard fails. `DB_SHARD_REPLICATION_FACTOR` controls how many shards each code is replicated
+to and the replica set for each code is determined deterministically using rendezvous hashing.
 See the code in [`services/api/app.py`](services/api/app.py) and [`services/api/sharding.py`](services/api/sharding.py) for details.
 
-@Maurice Könntest du hier ein Ergebnis von einem uniform-breakpoint Test einfügen
+@Maurice Könntest du hier ein Ergebnis von einem read-only uniform breakpoint Test einfügen
 
 ### Overload Protection
 
@@ -325,16 +335,17 @@ healthy ones. Every DB call is guarded by self-implemented primitives in
   (then probes once), so a slow or dead shard cannot block API workers on calls
   to it, and only that shard is short-circuited.
 
-`DB_SHARD_REPLICATION_FACTOR` controls how many shards each code is replicated
-to. The shared httpx connection pool is sized to `len(shards) *
+The shared httpx connection pool is sized to `len(shards) *
 DB_SHARD_CONCURRENCY` so a stalled shard cannot starve the pool and reintroduce
 cross-shard coupling.
+
+(Important note: For our breakpoint test in the results section we intentionally set the `DB_SHARD_CONCURRENCY` extremly high, since we want to test the actual limits of the system here!)
 
 @Maurice Fügst du hier die Ergenisse eines Tests ein, der Zeigt, dass das funktioniert?
 
 ## Results
 
- @Maurice Hier bitte die Results für 1/3/5 Nodes einfügen. Dabei einmal Inital sagen, was das Setup war also wie viele Shards und welcher Test und dann jeweils kurz ein/zwei Sätze was du aus den Results herausliest.
+ @Maurice Hier bitte die Results für 1/3/5 Nodes einfügen. Dabei einmal inital sagen, was das Setup war also wie viele Shards und welcher Test und dann jeweils kurz ein/zwei Sätze was du aus den Results herausliest.
 
 ## Limits
 
