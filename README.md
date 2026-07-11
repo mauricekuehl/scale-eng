@@ -1,4 +1,4 @@
-# Distribured URL Shortener
+# Distributed URL Shortener
 
 Small distributed URL shortener for the Scalability Engineering prototype.
 
