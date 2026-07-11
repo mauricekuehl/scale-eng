@@ -339,6 +339,13 @@ The shared httpx connection pool is sized to `len(shards) *
 DB_SHARD_CONCURRENCY` so a stalled shard cannot starve the pool and reintroduce
 cross-shard coupling.
 
+Just to proof that it is working, we ran a breakpoint test with a low value for `DB_SHARD_CONCURRENCY` and were able to see, that we reach the breakpoint way before the DB was overloaded (DB Saturation < 70%):
+
+**Results of Read-Only Breakpoint Test (Uniform-Distribution, 5 API-Nodes, 1 DB-Node)** 
+![Measurement](docs/measurement_bulkhead.png)
+![API Stats](docs/API_measurement_bulkhead.png)
+![DB Stats](docs/DB_measurement_bulkhead.png)
+
 (Important note: For our breakpoint test in the results section we intentionally set the `DB_SHARD_CONCURRENCY` extremly high, since we want to test the actual limits of the system here!)
 
 @Maurice Fügst du hier die Ergenisse eines Tests ein, der Zeigt, dass das funktioniert?
