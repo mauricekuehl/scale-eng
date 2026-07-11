@@ -1,11 +1,13 @@
-# URL Shortener
+# Distribured URL Shortener
 
-Small URL shortener for the Scalability Engineering prototype.
+Small distributed URL shortener for the Scalability Engineering prototype.
+
+See [documentation chapter](#documentation) for further details about the architecture and fullfillment of the requirements.
 
 ## What Runs
 
 - `services/api`: FastAPI service on port `8080`
-- `services/db`: FastAPI in-memory stores, run as five DB shards locally
+- `services/db`: FastAPI in-memory stores, run as five DB shards locally using shuffle sharding
 - Cloud deployment: one public Nginx load balancer VM, configurable private API
   VM count, and configurable private DB shard VM count
 - OpenTelemetry Collector, Prometheus, and Grafana for metrics
@@ -57,7 +59,7 @@ Defaults:
 - `REPO_NAME`: `url-shortener`
 - `TAG`: output of `whoami`
 - `API_SERVER_COUNT`: `5`
-- `DB_SERVER_COUNT`: `5`
+- `DB_SERVER_COUNT`: `3`
 
 Build, push, deploy, and wait:
 
@@ -215,19 +217,93 @@ To update the Grafana dashboard, make changes in the Grafana UI, export the JSON
 and replace `observability/grafana/dashboards/url-shortener-metrics.json`.
 
 ## Testing Sharding 
-- run docker
-- creating urls ( e.g 
-curl -X POST http://localhost:8080/create \
+- Run in docker
+- Creating urls ( e.g 
+`curl -X POST http://localhost:8080/create \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com/a"}' )
-- call each shard with the value of the created short-url at the end (e.g. curl -i http://localhost:9001/7Dw8Ew42)
-- try with different localhost ports and if the url is not there then "404 Not Found" will pop up or else "200 OK" if it's there
-- test redirect via API with the value of your short-url at the end again 
+  -d '{"url":"https://example.com/a"}'` )
+- Call each shard with the value of the created short-url at the end (e.g. curl -i http://localhost:9001/7Dw8Ew42)
+- Try with different localhost ports and if the url is not there then "404 Not Found" will pop up or else "200 OK" if it's there
+- Test redirect via API with the value of your short-url at the end again 
 curl -i http://localhost:8080/7Dw8Ew42
 
 # Documentation
 
-## Overload Protection
+We built a distributed URL shortener.
+
+Its core functionality is deliberately simple:
+- **Create Short URL:** you submit a long URL and get a shortened URL back.
+- **Access Short URL:** you request a shortened URL and receive a redirect to the original URL in response.
+
+## Architecture
+
+![Architecture Overview](docs/architecture_overview.png)
+
+**Load Balancer:**
+- We use nginx as the load balancer to distribute incoming requests across the API nodes in round-robin fashion.
+- Additional nginx features such as request limiting are intentionally not used.
+
+**API Nodes:**
+- The API nodes are plain FastAPI services and form our stateless component.
+- They can be scaled horizontally or vertically as needed.
+
+**DB Nodes:**
+- The DB nodes are FastAPI in-memory stores that keep the data in a hash map. We deliberately chose not to use a classic database, since for a prototype like this it would only add unnecessary overhead.
+- Each DB node is a shard and therefore holds only a subset of the data (hash-based sharding). On top of that we implemented shuffle sharding, so every item is stored on more than one shard.
+- They form our stateful component. They can be scaled vertically in the classic way, but thanks to sharding they can also be scaled horizontally.
+
+## How We Tackled the Requirements
+
+We started development with a very simple setup consisting of a single API node and a single DB node. To evaluate the performance our metric of choice was thoughput (req/s) and we used a read-only breakpoint test for testing.
+
+During testing we observed that the API node was the bottleneck in this configuration (see saturation):
+
+**Results of Read-Only Breakpoint Test** 
+![Measurement](docs/measurement_initial.png)
+![API Stats](docs/API_measurement_initial.png)
+![DB Stats](docs/DB_measurement_initial.png)
+
+### Scalability
+
+To solve the problem mentioned above we added a load balancer in the form of nginx, which lets us scale the API nodes horizontally with ease. Because this is a stateless component, it can now be scaled out to virtually any number of nodes.
+See the [code](infra/startup-lb.sh.tftpl) for details.
+
+With the now higher number of API nodes, the bottleneck shifted towards the DB node:
+
+**Results of Read-Only Breakpoint Test** 
+![Measurement](docs/measurement_after_LB.png)
+![API Stats](docs/API_measurement_after_LB.jpeg)
+![DB Stats](docs/DB_measurement_after_LB.png)
+
+
+### Strategy 1: Caching
+
+Since a URL shortener typically serves far more read requests than writes, we decided to give each API node its own in-memory LRU cache. These caches significantly reduce the number of requests forwarded to the DB nodes and therefore take load off them.
+
+Because the data stored in a URL shortener is immutable, we did not have to worry about consistency or TTL here.
+
+(Important note: we deliberately kept the caches fairly small to prevent an API node from simply caching the entire dataset.)
+
+See the [code](services/api/cache.py) for details.
+
+This worked very well and allowed us to handle significantly more requests per second:
+
+**Results of Read-Only Breakpoint Test (Hotspot-Distribution)** 
+![Measurement](docs/measurement_cache_hotspot.png)
+
+
+However, caches only help with read requests, and only when the access pattern is somewhat skewed so that many cache hits are possible. We therefore picked a second strategy to further relieve the DB bottleneck.
+
+### Strategy 2: (Shuffle) Sharding
+
+As a second strategy we implemented shuffle sharding. Each DB node represents one shard that stores a subset of the data. We use hash-based sharding to distribute the data as evenly as possible. On top of that we apply shuffle sharding, so every item is placed on more than one shard, which keeps all data accessible even if a single shard fails. The replica set for each code is determined deterministically using rendezvous hashing.
+See the code in [`services/api/app.py`](services/api/app.py) and [`services/api/sharding.py`](services/api/sharding.py) for details.
+
+@Maurice Könntest du hier ein Ergebnis von einem uniform-breakpoint Test einfügen
+
+### Overload Protection
+
+To make sure the DB nodes cannot be overloaded when the API tier is scaled out, we implemented two mechanisms that prevent overload and cascading failures: a bulkhead and a circuit breaker. For more details, take a look at the actual [code](services/api/overload.py).
 
 Scaling the API tier out multiplies the load on each DB shard: `N` independent
 API nodes can each fan out to the same shard, so a shard's aggregate concurrency
@@ -253,6 +329,50 @@ healthy ones. Every DB call is guarded by self-implemented primitives in
 to. The shared httpx connection pool is sized to `len(shards) *
 DB_SHARD_CONCURRENCY` so a stalled shard cannot starve the pool and reintroduce
 cross-shard coupling.
+
+@Maurice Fügst du hier die Ergenisse eines Tests ein, der Zeigt, dass das funktioniert?
+
+## Results
+
+ @Maurice Hier bitte die Results für 1/3/5 Nodes einfügen. Dabei einmal Inital sagen, was das Setup war also wie viele Shards und welcher Test und dann jeweils kurz ein/zwei Sätze was du aus den Results herausliest.
+
+## Limits
+
+Our prototype scales well for the workloads we tested, but it is not a perfectly
+linearly scaling system. The main limitations we are aware of:
+
+- **The API tier cannot be scaled independently forever.** Adding API nodes only
+  helps as long as the DB tier can keep up: every additional API node fans out
+  to the same shards, so scaling the API tier without scaling the DB tier just
+  shifts the bottleneck back to the DB. The overload protection then starts
+  shedding load instead of the system going faster. And even when both tiers are
+  scaled together, the system does not scale indefinitely — eventually shared
+  resources such as the load balancer, the network, or the coordination overhead
+  of sharding become the limiting factor.
+- **Overload protection sheds load rather than absorbing it.** Once a shard's
+  bulkhead is saturated or its circuit breaker is open, requests are shed. This
+  keeps the system healthy under overload, but it means throughput is capped and
+  some requests fail instead of being served with higher latency.
+- **In-memory DB, no durability.** The DB nodes keep all data in a Python hash
+  map, so every stored URL is lost when a DB container restarts. Shuffle sharding
+  only protects against a single shard being temporarily unavailable, not against
+  losing the whole tier or a permanent shard failure. A production system would
+  need persistence and real replication.
+- **The load balancer is a single point of failure.** A single nginx instance
+  fronts all API nodes. It can itself become a bottleneck or take the whole
+  system down if it fails; a highly available setup would need multiple LBs.
+- **Caching helps only for skewed read patterns.** The per-node LRU caches
+  reduce DB load only when the access pattern is skewed enough to produce cache
+  hits. For a uniform read distribution or a write-heavy workload the DB tier
+  remains the limiting factor.
+- **Resharding is not handled.** The number of shards is fixed at deployment
+  time. Changing it would remap codes to different shards under rendezvous
+  hashing and make part of the existing data unreachable, so the DB tier cannot
+  be resized live without a migration step.
+
+# Planning
+
+Before tackeling the actual implementation we wrote down some initial requirements for our prototype. 
 
 ## Functional Requirements
 
