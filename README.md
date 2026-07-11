@@ -309,7 +309,7 @@ As a second strategy we implemented shuffle sharding. Each DB node represents on
 to and the replica set for each code is determined deterministically using rendezvous hashing.
 See the code in [`services/api/app.py`](services/api/app.py) and [`services/api/sharding.py`](services/api/sharding.py) for details.
 
-@Maurice Könntest du hier ein Ergebnis von einem read-only uniform breakpoint Test einfügen
+@Maurice Könntest du hier ein Ergebnis von einem read-only uniform breakpoint Test einfügen, bei dem es Shards gab? Dabei sollte im besten Fall deutlich sein, dass wir durch die Shards beim Uniform-Distribution Breakpoint Test einen höheren Throughput erreichen als voher bei nur Caching.
 
 ### Overload Protection
 
@@ -347,8 +347,6 @@ Just to proof that it is working, we ran a breakpoint test with a low value for 
 ![DB Stats](docs/DB_measurement_bulkhead.png)
 
 (Important note: For our breakpoint test in the results section we intentionally set the `DB_SHARD_CONCURRENCY` extremly high, since we want to test the actual limits of the system here!)
-
-@Maurice Fügst du hier die Ergenisse eines Tests ein, der Zeigt, dass das funktioniert?
 
 ## Results
 
