@@ -236,7 +236,7 @@ guards are held **per shard** and a slow or dead shard must not affect the
 healthy ones. Every DB call is guarded by self-implemented primitives in
 [`services/api/overload.py`](services/api/overload.py):
 
-- **Bulkhead (per shard)** - caps concurrent calls a node makes to *one shard*
+- **Bulkhead (per shard)** — caps concurrent calls a node makes to *one shard*
   (`DB_SHARD_CONCURRENCY`). Terraform splits each shard's capacity across the
   deployed nodes (`DB_SHARD_CONCURRENCY = ceil(db_shard_capacity /
   api_server_count)`), so `api_server_count * DB_SHARD_CONCURRENCY` stays within
