@@ -1,10 +1,25 @@
-import sys
+import importlib.util
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT / "services" / "api"))
+SHARDING_PATH = PROJECT_ROOT / "services" / "api" / "sharding.py"
 
-from sharding import replica_shards_for_key
+ReplicaSelector = Callable[[str, Sequence[str], int], tuple[str, ...]]
+
+
+def load_replica_shards_for_key() -> ReplicaSelector:
+    spec = importlib.util.spec_from_file_location("api_sharding", SHARDING_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load {SHARDING_PATH}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return cast(ReplicaSelector, module.replica_shards_for_key)
+
+
+replica_shards_for_key = load_replica_shards_for_key()
 
 
 def test_replica_set_is_stable_and_bounded() -> None:

@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 import secrets
 import string
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -23,9 +24,7 @@ MAX_CREATE_ATTEMPTS = 10
 CACHE_CAPACITY = int(os.environ.get("CACHE_CAPACITY", "1000"))
 DB_SHARD_CONCURRENCY = int(os.environ.get("DB_SHARD_CONCURRENCY", "50"))
 DB_SHARD_ACQUIRE_TIMEOUT = float(os.environ.get("DB_SHARD_ACQUIRE_TIMEOUT", "0.05"))
-DB_SHARD_REPLICATION_FACTOR = max(
-    1, int(os.environ.get("DB_SHARD_REPLICATION_FACTOR", "2"))
-)
+DB_SHARD_REPLICATION_FACTOR = max(1, int(os.environ.get("DB_SHARD_REPLICATION_FACTOR", "2")))
 BREAKER_THRESHOLD = int(os.environ.get("BREAKER_THRESHOLD", "5"))
 BREAKER_COOLDOWN = float(os.environ.get("BREAKER_COOLDOWN", "2.0"))
 RETRY_AFTER = {"Retry-After": "1"}
@@ -133,13 +132,6 @@ async def db_request(shard: str, send: Callable[[], Awaitable[httpx.Response]]) 
         ) from exc
 
 
-async def db_delete_replica(client: httpx.AsyncClient, shard: str, code: str) -> None:
-    try:
-        await db_request(shard, lambda: client.delete(f"{shard}/{code}"))
-    except HTTPException:
-        return
-
-
 async def db_put_replicated(client: httpx.AsyncClient, code: str, original_url: str) -> bool:
     shards = shards_for_key(code)
     responses = await asyncio.gather(
@@ -153,44 +145,47 @@ async def db_put_replicated(client: httpx.AsyncClient, code: str, original_url: 
         return_exceptions=True,
     )
 
-    successful_shards = [
-        shard
-        for shard, response in zip(shards, responses, strict=True)
-        if isinstance(response, httpx.Response) and response.status_code == 201
-    ]
-    has_conflict = any(
-        isinstance(response, httpx.Response) and response.status_code == 409
-        for response in responses
-    )
-    if has_conflict:
-        await asyncio.gather(
-            *(db_delete_replica(client, shard, code) for shard in successful_shards),
-            return_exceptions=True,
-        )
-        return False
+    for response in responses:
+        if isinstance(response, HTTPException):
+            if response.status_code == 503:
+                raise response
+            raise HTTPException(status_code=500, detail="unexpected db replica error") from response
+        if isinstance(response, BaseException):
+            raise HTTPException(status_code=500, detail="unexpected db replica error") from response
 
-    return bool(successful_shards)
+    db_responses = [cast(httpx.Response, response) for response in responses]
+    status_codes = {response.status_code for response in db_responses}
+    if len(status_codes) != 1:
+        raise HTTPException(status_code=500, detail="inconsistent db replica state")
+
+    status_code = status_codes.pop()
+    if status_code == 409:
+        return False
+    if status_code == 201:
+        return True
+
+    raise HTTPException(status_code=500, detail="unexpected db replica status")
+
+
+def shuffled_shards_for_key(key: str) -> list[str]:
+    shards = list(shards_for_key(key))
+    random.shuffle(shards)
+    return shards
 
 
 async def db_get(client: httpx.AsyncClient, code: str) -> httpx.Response:
-    shards = shards_for_key(code)
-    had_error = False
-
-    for shard in shards:
+    for shard in shuffled_shards_for_key(code):
         try:
             response = await db_request(shard, lambda shard=shard: client.get(f"{shard}/{code}"))
         except HTTPException:
-            had_error = True
             continue
 
         if response.status_code == 200:
             return response
-        if response.status_code != 404:
-            had_error = True
+        if response.status_code == 404:
+            raise HTTPException(status_code=404)
 
-    if had_error:
-        raise HTTPException(status_code=503, detail="db replicas unavailable", headers=RETRY_AFTER)
-    raise HTTPException(status_code=404)
+    raise HTTPException(status_code=503, detail="db replicas unavailable", headers=RETRY_AFTER)
 
 
 # Only for testing purposes
@@ -220,7 +215,7 @@ async def create(request: Request) -> dict[str, str]:
         if await db_put_replicated(client, code, original_url):
             return {"shortUrl": f"{BASE_URL}/{code}"}
 
-    raise HTTPException(status_code=503, detail="could not allocate short code")
+    raise HTTPException(status_code=500, detail="could not allocate short code")
 
 
 @app.get("/{code}")
