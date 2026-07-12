@@ -362,6 +362,12 @@ Just to proof that it is working, we ran a breakpoint test with a low value for 
 We kept the DB tier fixed at 3 nodes and scaled only the API tier. All runs used
 the read-only hotspot breakpoint test.
 
+This workload is realistic for a URL shortener: most requests are reads, and a
+power-law hotspot distribution models popular short URLs.
+
+`t2d-standard-1` is the older x86 instance type. `c4a-standard-1` is the newer,
+more performant ARM instance type.
+
 **Note:** The DB nodes ran in a different GCP region because our quota allowed
 only eight VMs per region. This adds network overhead, so the results are
 conservative.
@@ -374,6 +380,14 @@ conservative.
 | `c4a-standard-1` | 1 | 3 | ~1.45k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_1_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T173755Z-breakpoint-read-hotspot-report-c4a-standard-1-1_api_node-3_db_nodes.html), [JSON](benchmark_results/20260712T173755Z-breakpoint-read-hotspot-summary-c4a-standard-1-1_api_node-3_db_nodes.json) |
 | `c4a-standard-1` | 3 | 3 | ~4.24k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_3_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-report-c4a-standard-1-3_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-summary-c4a-standard-1-3_api_nodes-3_db_nodes.json) |
 | `c4a-standard-1` | 5 | 3 | ~5.65k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_5_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-report-c4a-standard-1-5_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-summary-c4a-standard-1-5_api_nodes-3_db_nodes.json) |
+
+Throughput scales roughly linearly with the number of API nodes in these runs.
+This works because caches and the hotspot distribution let API nodes answer many
+requests without contacting the DB tier.
+
+This scaling is not indefinite. The next bottleneck is hard to predict exactly,
+but if we keep adding API nodes without scaling DB nodes, the DB tier will
+eventually limit throughput.
 
 ## Limits
 
