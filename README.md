@@ -381,19 +381,21 @@ conservative.
 | `c4a-standard-1` | 3 | 3 | ~4.24k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_3_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-report-c4a-standard-1-3_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-summary-c4a-standard-1-3_api_nodes-3_db_nodes.json) |
 | `c4a-standard-1` | 5 | 3 | ~5.65k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_5_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-report-c4a-standard-1-5_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-summary-c4a-standard-1-5_api_nodes-3_db_nodes.json) |
 
-The stronger `c4a-standard-1` instances improve throughput by roughly 40-50%
-with 1 and 3 API nodes compared to `t2d-standard-1`. With 5 API nodes the benefit of a bigger instance is not as big anymore, we think here the
-single Nginx load balancer becomes the bottleneck at ~5.65k req/s because
-upstream connections are recycled after
-[`keepalive_requests 1000`](https://github.com/mauricekuehl/scale-eng/blob/616b615f2285105aed4fc7d6bfeca3ef599fda10/infra/startup-lb.sh.tftpl#L25).
+The more powerful `c4a-standard-1` instances improve throughput by approximately 40–50% with 1 and 3 API nodes compared to `t2d-standard-1`.
+With 5 API nodes, however, the benefit of the faster instances becomes significantly smaller (~10%). We believe that, at this point, 
+the single Nginx load balancer becomes the primary bottleneck, limiting overall throughput to approximately 5.65k requests per second. 
+One potential contributing factor is the recycling of upstream connections after 
+[`keepalive_requests 1000`](https://github.com/mauricekuehl/scale-eng/blob/616b615f2285105aed4fc7d6bfeca3ef599fda10/infra/startup-lb.sh.tftpl#L25),
+which may introduce additional connection setup overhead at this request rate.
 
 In general throughput scales roughly linearly with the number of API nodes in these runs.
 This works because caches and the hotspot distribution let API nodes answer many
 requests without contacting the DB tier.
 
-This scaling is not indefinite. The next bottleneck is hard to predict exactly,
-but if we keep adding API nodes without scaling DB nodes, the DB tier will
-eventually limit throughput.
+This scaling does not continue indefinitely, and the next bottleneck is difficult to predict precisely. 
+At higher throughput levels, the single Nginx load balancer may become a limiting factor. Similarly, 
+if we continue adding API nodes without scaling the database tier accordingly, 
+the database nodes will eventually become the primary throughput bottleneck.
 
 ## Limits
 
