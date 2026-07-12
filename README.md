@@ -309,7 +309,16 @@ As a second strategy we implemented shuffle sharding. Each DB node represents on
 to and the replica set for each code is determined deterministically using rendezvous hashing.
 See the code in [`services/api/app.py`](services/api/app.py) and [`services/api/sharding.py`](services/api/sharding.py) for details.
 
-@Maurice Könntest du hier ein Ergebnis von einem read-only uniform breakpoint Test einfügen, bei dem es Shards gab? Dabei sollte im besten Fall deutlich sein, dass wir durch die Shards beim Uniform-Distribution Breakpoint Test einen höheren Throughput erreichen als voher bei nur Caching.
+With sharding enabled, we repeated the read-only uniform breakpoint test on
+5 API nodes and 3 DB nodes. The breakpoint moved to about 1.8k req/s because the
+uniform DB load was spread across three shards instead of one DB node.
+
+**Results of Read-Only Breakpoint Test (Uniform-Distribution, 5 API-Nodes, 3 DB-Nodes)**
+![Measurement](docs/measurement_uniform_5_api_3_db.jpeg)
+
+**Note:** The DB nodes ran in a different GCP region because our quota allowed
+only eight VMs per region. This adds network overhead, so the result is
+conservative.
 
 ### Overload Protection
 
@@ -350,7 +359,39 @@ Just to proof that it is working, we ran a breakpoint test with a low value for 
 
 ## Results
 
- @Maurice Hier bitte die Results für 1/3/5 Nodes einfügen. Dabei einmal inital sagen, was das Setup war also wie viele Shards und welcher Test und dann jeweils kurz ein/zwei Sätze was du aus den Results herausliest.
+For the final scaling comparison, we kept the DB tier fixed at 3 shards and
+scaled only the API tier. We used the read-only hotspot breakpoint test.
+
+| API nodes | DB nodes | Breakpoint |
+| --- | --- | --- |
+| 1 | 3 | ~1.03k req/s |
+| 3 | 3 | ~2.96k req/s |
+| 5 | 3 | ~4.94k req/s |
+
+**1 API-Node, 3 DB-Nodes**
+![Measurement](docs/measurement_api_scaling_1_api_3_db.jpeg)
+
+Report artifacts:
+[HTML](benchmark_results/20260712T150118Z-breakpoint-read-hotspot-report-1_api_node-3_db_nodes.html),
+[JSON](benchmark_results/20260712T150118Z-breakpoint-read-hotspot-summary-1_api_node-3_db_nodes.json)
+
+**3 API-Nodes, 3 DB-Nodes**
+![Measurement](docs/measurement_api_scaling_3_api_3_db.jpeg)
+
+Report artifacts:
+[HTML](benchmark_results/20260712T151506Z-breakpoint-read-hotspot-report-3_api_nodes-3_db_nodes.html),
+[JSON](benchmark_results/20260712T151506Z-breakpoint-read-hotspot-summary-3_api_nodes-3_db_nodes.json)
+
+**5 API-Nodes, 3 DB-Nodes**
+![Measurement](docs/measurement_api_scaling_5_api_3_db.jpeg)
+
+Report artifacts:
+[HTML](benchmark_results/20260712T153041Z-breakpoint-read-hotspot-report-5_api_nodes-3_db_nodes.html),
+[JSON](benchmark_results/20260712T153041Z-breakpoint-read-hotspot-summary-5_api_nodes-3_db_nodes.json)
+
+**Note:** The DB nodes ran in a different GCP region because our quota allowed
+only eight VMs per region. This adds network overhead, so the results are
+conservative.
 
 ## Limits
 
