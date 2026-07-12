@@ -91,7 +91,7 @@ variable "db_machine_type" {
 variable "db_server_count" {
   description = "Number of private DB shard VMs."
   type        = number
-  default     = 5
+  default     = 3
 
   validation {
     condition     = var.db_server_count > 0
