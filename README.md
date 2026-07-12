@@ -395,7 +395,7 @@ requests without contacting the DB tier.
 This scaling does not continue indefinitely, and the next bottleneck is difficult to predict precisely. 
 At higher throughput levels, the single Nginx load balancer may become a limiting factor. Similarly, 
 if we continue adding API nodes without scaling the database tier accordingly, 
-the database nodes will eventually become the primary throughput bottleneck.
+the database nodes will eventually limit throughput.
 
 ## Limits
 
