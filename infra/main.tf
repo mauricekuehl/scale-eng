@@ -246,12 +246,13 @@ resource "google_compute_instance" "api" {
     db_urls = join(",", [
       for db in google_compute_instance.db : "http://${db.network_interface[0].network_ip}:9000"
     ])
-    otel_endpoint            = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
-    cache_capacity           = var.cache_capacity
-    db_shard_concurrency     = ceil(var.db_shard_capacity / var.api_server_count)
-    db_shard_acquire_timeout = var.db_shard_acquire_timeout
-    breaker_threshold        = var.breaker_threshold
-    breaker_cooldown         = var.breaker_cooldown
+    otel_endpoint               = "http://${google_compute_instance.observability.network_interface[0].network_ip}:4318"
+    cache_capacity              = var.cache_capacity
+    db_shard_concurrency        = ceil(var.db_shard_capacity / var.api_server_count)
+    db_shard_replication_factor = var.db_shard_replication_factor
+    db_shard_acquire_timeout    = var.db_shard_acquire_timeout
+    breaker_threshold           = var.breaker_threshold
+    breaker_cooldown            = var.breaker_cooldown
   })
 
   service_account {
