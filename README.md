@@ -318,7 +318,7 @@ uniform DB load was spread across three shards instead of one DB node.
 
 **Note:** The DB nodes ran in a different GCP region because our quota allowed
 only eight VMs per region. This adds network overhead, so the result is
-conservative.
+conservative and cannot be directly compared to previous results. 
 
 ### Overload Protection
 
@@ -359,39 +359,21 @@ Just to proof that it is working, we ran a breakpoint test with a low value for 
 
 ## Results
 
-For the final scaling comparison, we kept the DB tier fixed at 3 shards and
-scaled only the API tier. We used the read-only hotspot breakpoint test.
-
-| API nodes | DB nodes | Breakpoint |
-| --- | --- | --- |
-| 1 | 3 | ~1.03k req/s |
-| 3 | 3 | ~2.96k req/s |
-| 5 | 3 | ~4.94k req/s |
-
-**1 API-Node, 3 DB-Nodes**
-![Measurement](docs/measurement_api_scaling_1_api_3_db.jpeg)
-
-Report artifacts:
-[HTML](benchmark_results/20260712T150118Z-breakpoint-read-hotspot-report-1_api_node-3_db_nodes.html),
-[JSON](benchmark_results/20260712T150118Z-breakpoint-read-hotspot-summary-1_api_node-3_db_nodes.json)
-
-**3 API-Nodes, 3 DB-Nodes**
-![Measurement](docs/measurement_api_scaling_3_api_3_db.jpeg)
-
-Report artifacts:
-[HTML](benchmark_results/20260712T151506Z-breakpoint-read-hotspot-report-3_api_nodes-3_db_nodes.html),
-[JSON](benchmark_results/20260712T151506Z-breakpoint-read-hotspot-summary-3_api_nodes-3_db_nodes.json)
-
-**5 API-Nodes, 3 DB-Nodes**
-![Measurement](docs/measurement_api_scaling_5_api_3_db.jpeg)
-
-Report artifacts:
-[HTML](benchmark_results/20260712T153041Z-breakpoint-read-hotspot-report-5_api_nodes-3_db_nodes.html),
-[JSON](benchmark_results/20260712T153041Z-breakpoint-read-hotspot-summary-5_api_nodes-3_db_nodes.json)
+We kept the DB tier fixed at 3 nodes and scaled only the API tier. All runs used
+the read-only hotspot breakpoint test.
 
 **Note:** The DB nodes ran in a different GCP region because our quota allowed
 only eight VMs per region. This adds network overhead, so the results are
 conservative.
+
+| API machine type | API nodes | DB nodes | Breakpoint | Screenshot | Artifacts |
+| --- | ---: | ---: | ---: | --- | --- |
+| `t2d-standard-1` | 1 | 3 | ~1.03k req/s | <img src="docs/measurement_api_scaling_t2d-standard-1_1_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T150118Z-breakpoint-read-hotspot-report-t2d-standard-1-1_api_node-3_db_nodes.html), [JSON](benchmark_results/20260712T150118Z-breakpoint-read-hotspot-summary-t2d-standard-1-1_api_node-3_db_nodes.json) |
+| `t2d-standard-1` | 3 | 3 | ~2.96k req/s | <img src="docs/measurement_api_scaling_t2d-standard-1_3_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T151506Z-breakpoint-read-hotspot-report-t2d-standard-1-3_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T151506Z-breakpoint-read-hotspot-summary-t2d-standard-1-3_api_nodes-3_db_nodes.json) |
+| `t2d-standard-1` | 5 | 3 | ~4.94k req/s | <img src="docs/measurement_api_scaling_t2d-standard-1_5_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T153041Z-breakpoint-read-hotspot-report-t2d-standard-1-5_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T153041Z-breakpoint-read-hotspot-summary-t2d-standard-1-5_api_nodes-3_db_nodes.json) |
+| `c4a-standard-1` | 1 | 3 | ~1.45k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_1_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T173755Z-breakpoint-read-hotspot-report-c4a-standard-1-1_api_node-3_db_nodes.html), [JSON](benchmark_results/20260712T173755Z-breakpoint-read-hotspot-summary-c4a-standard-1-1_api_node-3_db_nodes.json) |
+| `c4a-standard-1` | 3 | 3 | ~4.24k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_3_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-report-c4a-standard-1-3_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-summary-c4a-standard-1-3_api_nodes-3_db_nodes.json) |
+| `c4a-standard-1` | 5 | 3 | ~5.65k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_5_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-report-c4a-standard-1-5_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-summary-c4a-standard-1-5_api_nodes-3_db_nodes.json) |
 
 ## Limits
 
