@@ -271,7 +271,7 @@ See the [code](infra/startup-lb.sh.tftpl) for details.
 With the now higher number of API nodes, the bottleneck shifted towards the DB node:
 
 **Results of Read-Only Breakpoint Test (5 API-Nodes)** 
-![Measurement](docs/measurement_after_LB.png)
+![Measurement](docs/measurement_after_lb.png)
 ![API Stats](docs/API_measurement_after_LB.jpeg)
 ![DB Stats](docs/DB_measurement_after_LB.png)
 
@@ -382,12 +382,12 @@ conservative.
 | `c4a-standard-1` | 5 | 3 | ~5.65k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_5_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-report-c4a-standard-1-5_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-summary-c4a-standard-1-5_api_nodes-3_db_nodes.json) |
 
 The stronger `c4a-standard-1` instances improve throughput by roughly 40-50%
-with 1 and 3 API nodes compared to `t2d-standard-1`. With 5 API nodes, the
+with 1 and 3 API nodes compared to `t2d-standard-1`. With 5 API nodes the benefit of a bigger instance is not as big anymore, we think here the
 single Nginx load balancer becomes the bottleneck at ~5.65k req/s because
 upstream connections are recycled after
 [`keepalive_requests 1000`](https://github.com/mauricekuehl/scale-eng/blob/616b615f2285105aed4fc7d6bfeca3ef599fda10/infra/startup-lb.sh.tftpl#L25).
 
-Throughput scales roughly linearly with the number of API nodes in these runs.
+In general throughput scales roughly linearly with the number of API nodes in these runs.
 This works because caches and the hotspot distribution let API nodes answer many
 requests without contacting the DB tier.
 
