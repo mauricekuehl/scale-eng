@@ -381,8 +381,10 @@ conservative.
 | `c4a-standard-1` | 3 | 3 | ~4.24k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_3_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-report-c4a-standard-1-3_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-summary-c4a-standard-1-3_api_nodes-3_db_nodes.json) |
 | `c4a-standard-1` | 5 | 3 | ~5.65k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_5_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-report-c4a-standard-1-5_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-summary-c4a-standard-1-5_api_nodes-3_db_nodes.json) |
 
-With `c4a-standard-1` and 5 API nodes, the single Nginx load balancer is the
-bottleneck at ~5.65k req/s because upstream connections are recycled after
+The stronger `c4a-standard-1` instances improve throughput by roughly 40-50%
+with 1 and 3 API nodes compared to `t2d-standard-1`. With 5 API nodes, the
+single Nginx load balancer becomes the bottleneck at ~5.65k req/s because
+upstream connections are recycled after
 [`keepalive_requests 1000`](https://github.com/mauricekuehl/scale-eng/blob/616b615f2285105aed4fc7d6bfeca3ef599fda10/infra/startup-lb.sh.tftpl#L25).
 
 Throughput scales roughly linearly with the number of API nodes in these runs.
