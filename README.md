@@ -282,7 +282,7 @@ Since a URL shortener typically serves far more read requests than writes, we de
 
 Because the data stored in a URL shortener is immutable, we did not have to worry about consistency or TTL here.
 
-(Important note: we deliberately kept the caches fairly small to prevent an API node from simply caching the entire dataset.)
+We deliberately kept the caches fairly small to prevent an API node from simply caching the entire dataset.
 
 See the [code](services/api/cache.py) for details.
 
@@ -355,7 +355,7 @@ Just to proof that it is working, we ran a breakpoint test with a low value for 
 ![API Stats](docs/API_measurement_bulkhead.png)
 ![DB Stats](docs/DB_measurement_bulkhead.png)
 
-(Important note: For our breakpoint test in the results section we intentionally set the `DB_SHARD_CONCURRENCY` extremly high, since we want to test the actual limits of the system here!)
+**Note**: For our breakpoint test in the results section we intentionally set the `DB_SHARD_CONCURRENCY` extremly high, since we want to test the actual limits of the system here!
 
 ## Results
 
