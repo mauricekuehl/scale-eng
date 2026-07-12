@@ -309,7 +309,16 @@ As a second strategy we implemented shuffle sharding. Each DB node represents on
 to and the replica set for each code is determined deterministically using rendezvous hashing.
 See the code in [`services/api/app.py`](services/api/app.py) and [`services/api/sharding.py`](services/api/sharding.py) for details.
 
-@Maurice Könntest du hier ein Ergebnis von einem read-only uniform breakpoint Test einfügen, bei dem es Shards gab? Dabei sollte im besten Fall deutlich sein, dass wir durch die Shards beim Uniform-Distribution Breakpoint Test einen höheren Throughput erreichen als voher bei nur Caching.
+With sharding enabled, we repeated the read-only uniform breakpoint test on
+5 API nodes and 3 DB nodes. The breakpoint moved to about 1.8k req/s because the
+uniform DB load was spread across three shards instead of one DB node.
+
+**Results of Read-Only Breakpoint Test (Uniform-Distribution, 5 API-Nodes, 3 DB-Nodes)**
+![Measurement](docs/measurement_uniform_5_api_3_db.jpeg)
+
+**Note:** The DB nodes ran in a different GCP region because our quota allowed
+only eight VMs per region. This adds network overhead, so the result is
+conservative and cannot be directly compared to previous results. 
 
 ### Overload Protection
 
@@ -350,7 +359,41 @@ Just to proof that it is working, we ran a breakpoint test with a low value for 
 
 ## Results
 
- @Maurice Hier bitte die Results für 1/3/5 Nodes einfügen. Dabei einmal inital sagen, was das Setup war also wie viele Shards und welcher Test und dann jeweils kurz ein/zwei Sätze was du aus den Results herausliest.
+We kept the DB tier fixed at 3 nodes and scaled only the API tier. All runs used
+the read-only hotspot breakpoint test.
+
+This workload is realistic for a URL shortener: most requests are reads, and a
+power-law hotspot distribution models popular short URLs.
+
+`t2d-standard-1` is the older x86 instance type. `c4a-standard-1` is the newer,
+more performant ARM instance type.
+
+**Note:** The DB nodes ran in a different GCP region because our quota allowed
+only eight VMs per region. This adds network overhead, so the results are
+conservative.
+
+| API machine type | API nodes | DB nodes | Breakpoint | Screenshot | Artifacts |
+| --- | ---: | ---: | ---: | --- | --- |
+| `t2d-standard-1` | 1 | 3 | ~1.03k req/s | <img src="docs/measurement_api_scaling_t2d-standard-1_1_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T150118Z-breakpoint-read-hotspot-report-t2d-standard-1-1_api_node-3_db_nodes.html), [JSON](benchmark_results/20260712T150118Z-breakpoint-read-hotspot-summary-t2d-standard-1-1_api_node-3_db_nodes.json) |
+| `t2d-standard-1` | 3 | 3 | ~2.96k req/s | <img src="docs/measurement_api_scaling_t2d-standard-1_3_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T151506Z-breakpoint-read-hotspot-report-t2d-standard-1-3_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T151506Z-breakpoint-read-hotspot-summary-t2d-standard-1-3_api_nodes-3_db_nodes.json) |
+| `t2d-standard-1` | 5 | 3 | ~4.94k req/s | <img src="docs/measurement_api_scaling_t2d-standard-1_5_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T153041Z-breakpoint-read-hotspot-report-t2d-standard-1-5_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T153041Z-breakpoint-read-hotspot-summary-t2d-standard-1-5_api_nodes-3_db_nodes.json) |
+| `c4a-standard-1` | 1 | 3 | ~1.45k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_1_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T173755Z-breakpoint-read-hotspot-report-c4a-standard-1-1_api_node-3_db_nodes.html), [JSON](benchmark_results/20260712T173755Z-breakpoint-read-hotspot-summary-c4a-standard-1-1_api_node-3_db_nodes.json) |
+| `c4a-standard-1` | 3 | 3 | ~4.24k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_3_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-report-c4a-standard-1-3_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T174812Z-breakpoint-read-hotspot-summary-c4a-standard-1-3_api_nodes-3_db_nodes.json) |
+| `c4a-standard-1` | 5 | 3 | ~5.65k req/s | <img src="docs/measurement_api_scaling_c4a-standard-1_5_api_3_db.jpeg" width="220"> | [HTML](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-report-c4a-standard-1-5_api_nodes-3_db_nodes.html), [JSON](benchmark_results/20260712T180245Z-breakpoint-read-hotspot-summary-c4a-standard-1-5_api_nodes-3_db_nodes.json) |
+
+The stronger `c4a-standard-1` instances improve throughput by roughly 40-50%
+with 1 and 3 API nodes compared to `t2d-standard-1`. With 5 API nodes, the
+single Nginx load balancer becomes the bottleneck at ~5.65k req/s because
+upstream connections are recycled after
+[`keepalive_requests 1000`](https://github.com/mauricekuehl/scale-eng/blob/616b615f2285105aed4fc7d6bfeca3ef599fda10/infra/startup-lb.sh.tftpl#L25).
+
+Throughput scales roughly linearly with the number of API nodes in these runs.
+This works because caches and the hotspot distribution let API nodes answer many
+requests without contacting the DB tier.
+
+This scaling is not indefinite. The next bottleneck is hard to predict exactly,
+but if we keep adding API nodes without scaling DB nodes, the DB tier will
+eventually limit throughput.
 
 ## Limits
 

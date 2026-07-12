@@ -15,6 +15,17 @@ variable "zone" {
   default     = "europe-west3-a"
 }
 
+variable "db_zone" {
+  description = "Optional GCP zone for DB VMs. Defaults to zone when unset."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.db_zone == null || can(regex("^[a-z]+-[a-z]+[0-9]+-[a-z]$", var.db_zone))
+    error_message = "db_zone must be a valid GCP zone, for example europe-west4-a."
+  }
+}
+
 variable "repo_name" {
   description = "Artifact Registry Docker repository name."
   type        = string
@@ -54,7 +65,7 @@ variable "cache_capacity" {
 variable "db_shard_capacity" {
   description = "Concurrency a single DB shard can serve. Split evenly across API nodes into the per-node, per-shard bulkhead limit DB_SHARD_CONCURRENCY = ceil(this / api_server_count), so scaling the API tier out cannot overload any shard."
   type        = number
-  default     = 150
+  default     = 10000
 }
 
 variable "db_shard_replication_factor" {
