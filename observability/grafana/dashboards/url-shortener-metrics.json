@@ -2970,7 +2970,7 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "p50 and p95 HTTP server latency for the DB service.",
+      "description": "p50 and p95 HTTP server latency for the selected DB shard set.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3060,7 +3060,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_duration_milliseconds_bucket{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_duration_milliseconds_bucket{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"}[$__rate_interval])))",
           "legendFormat": "p50",
           "range": true,
           "refId": "A"
@@ -3071,7 +3071,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_milliseconds_bucket{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_milliseconds_bucket{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"}[$__rate_interval])))",
           "legendFormat": "p95",
           "range": true,
           "refId": "B"
@@ -3085,7 +3085,7 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "HTTP requests per second for the DB service, split by method and status code.",
+      "description": "HTTP requests per second for the selected DB shard set, split by method and status code.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3167,7 +3167,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (http_method, http_status_code) (rate(http_server_duration_milliseconds_count{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\"}[$__rate_interval]))",
+          "expr": "sum by (http_method, http_status_code) (rate(http_server_duration_milliseconds_count{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"}[$__rate_interval]))",
           "legendFormat": "{{http_method}} {{http_status_code}}",
           "range": true,
           "refId": "A"
@@ -3181,7 +3181,7 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "DB 4xx and 5xx responses per second.",
+      "description": "DB 4xx and 5xx responses per second for the selected DB shard set.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3267,7 +3267,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",http_status_code=~\"4..\"}[$__rate_interval])) or vector(0)",
+          "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\",http_status_code=~\"4..\"}[$__rate_interval])) or vector(0)",
           "legendFormat": "4xx",
           "range": true,
           "refId": "A"
@@ -3278,7 +3278,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",http_status_code=~\"5..\"}[$__rate_interval])) or vector(0)",
+          "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\",http_status_code=~\"5..\"}[$__rate_interval])) or vector(0)",
           "legendFormat": "5xx",
           "range": true,
           "refId": "B"
@@ -3292,7 +3292,7 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "Process CPU utilization for the DB service.",
+      "description": "Process CPU utilization for the selected DB shard set.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3382,7 +3382,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "avg(process_cpu_utilization_ratio{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\"})",
+          "expr": "avg(process_cpu_utilization_ratio{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"})",
           "legendFormat": "CPU utilization",
           "range": true,
           "refId": "A"
@@ -3396,7 +3396,7 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "Process memory usage for the DB service.",
+      "description": "Process memory usage for the selected DB shard set.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3478,7 +3478,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "avg(process_memory_usage_bytes{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\"})",
+          "expr": "avg(process_memory_usage_bytes{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"})",
           "legendFormat": "Memory usage",
           "range": true,
           "refId": "A"
@@ -3492,7 +3492,7 @@
         "type": "prometheus",
         "uid": "Prometheus"
       },
-      "description": "Current HTTP requests in flight for the DB service.",
+      "description": "Current HTTP requests in flight for the selected DB shard set.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3574,13 +3574,422 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(http_server_active_requests{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\"})",
+          "expr": "sum(http_server_active_requests{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"})",
           "legendFormat": "In-flight requests",
           "range": true,
           "refId": "A"
         }
       ],
       "title": "DB In-Flight Requests",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 68
+      },
+      "id": 40,
+      "panels": [],
+      "title": "DB Shard Distribution",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "description": "Requests per second handled by each DB shard.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "insertNulls": false,
+            "showPoints": "never",
+            "pointSize": 5,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "axisCenteredZero": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 69
+      },
+      "id": 41,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service_instance_id) (rate(http_server_duration_milliseconds_count{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"}[$__rate_interval]))",
+          "legendFormat": "{{service_instance_id}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "DB Traffic by Shard",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "description": "p95 HTTP server latency per DB shard. A slow shard stands out here even if aggregate DB latency looks acceptable.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "insertNulls": false,
+            "showPoints": "never",
+            "pointSize": 5,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "axisCenteredZero": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 69
+      },
+      "id": 42,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (service_instance_id, le) (rate(http_server_duration_milliseconds_bucket{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"}[$__rate_interval])))",
+          "legendFormat": "{{service_instance_id}} p95",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "DB p95 Latency by Shard",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "description": "Process CPU utilization for each DB shard.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "insertNulls": false,
+            "showPoints": "never",
+            "pointSize": 5,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "axisCenteredZero": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 77
+      },
+      "id": 43,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "avg by (service_instance_id) (process_cpu_utilization_ratio{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"})",
+          "legendFormat": "{{service_instance_id}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "DB CPU by Shard",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "description": "Current active DB requests per shard.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "insertNulls": false,
+            "showPoints": "never",
+            "pointSize": 5,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "axisCenteredZero": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 77
+      },
+      "id": 44,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (service_instance_id) (http_server_active_requests{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\",service_instance_id=~\"$db_instance\"})",
+          "legendFormat": "{{service_instance_id}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "DB In-Flight by Shard",
       "type": "timeseries"
     }
   ],
@@ -3612,6 +4021,34 @@
         "options": [],
         "query": {
           "query": "label_values(http_server_duration_milliseconds_count{service_name=\"url-shortener-api\",telemetry_sdk_language=\"python\"}, service_instance_id)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "definition": "label_values(http_server_duration_milliseconds_count{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\"}, service_instance_id)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "DB shard",
+        "multi": true,
+        "name": "db_instance",
+        "options": [],
+        "query": {
+          "query": "label_values(http_server_duration_milliseconds_count{service_name=\"url-shortener-db\",telemetry_sdk_language=\"python\"}, service_instance_id)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,

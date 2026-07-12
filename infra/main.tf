@@ -4,6 +4,8 @@ locals {
   lb_name       = "${local.name_prefix}-lb"
   db_name       = "${local.name_prefix}-db"
   obs_name      = "${local.name_prefix}-observability"
+  db_zone       = coalesce(var.db_zone, var.zone)
+  db_region     = regex("^(.*)-[a-z]$", local.db_zone)[0]
   artifact_host = "${var.region}-docker.pkg.dev"
   api_image     = "${local.artifact_host}/${var.project_id}/${var.repo_name}/api:${var.image_tag}"
   db_image      = "${local.artifact_host}/${var.project_id}/${var.repo_name}/db:${var.image_tag}"
@@ -48,9 +50,24 @@ resource "google_compute_subnetwork" "main" {
   network       = google_compute_network.main.id
 }
 
+resource "google_compute_subnetwork" "db" {
+  count         = local.db_region == var.region ? 0 : 1
+  name          = "${local.name_prefix}-db-subnet"
+  ip_cidr_range = "10.20.0.0/24"
+  region        = local.db_region
+  network       = google_compute_network.main.id
+}
+
 resource "google_compute_router" "main" {
   name    = "${local.name_prefix}-router"
   region  = var.region
+  network = google_compute_network.main.id
+}
+
+resource "google_compute_router" "db" {
+  count   = local.db_region == var.region ? 0 : 1
+  name    = "${local.name_prefix}-db-router"
+  region  = local.db_region
   network = google_compute_network.main.id
 }
 
@@ -58,6 +75,15 @@ resource "google_compute_router_nat" "main" {
   name                               = "${local.name_prefix}-nat"
   router                             = google_compute_router.main.name
   region                             = var.region
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+}
+
+resource "google_compute_router_nat" "db" {
+  count                              = local.db_region == var.region ? 0 : 1
+  name                               = "${local.name_prefix}-db-nat"
+  router                             = google_compute_router.db[0].name
+  region                             = local.db_region
   nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 }
@@ -269,7 +295,7 @@ resource "google_compute_instance" "db" {
   count        = var.db_server_count
   name         = "${local.db_name}-${count.index + 1}"
   machine_type = var.db_machine_type
-  zone         = var.zone
+  zone         = local.db_zone
   tags         = ["url-shortener-db"]
 
   boot_disk {
@@ -281,7 +307,7 @@ resource "google_compute_instance" "db" {
   }
 
   network_interface {
-    subnetwork = google_compute_subnetwork.main.id
+    subnetwork = local.db_region == var.region ? google_compute_subnetwork.main.id : google_compute_subnetwork.db[0].id
   }
 
   metadata_startup_script = templatefile("${path.module}/startup-db.sh.tftpl", {
